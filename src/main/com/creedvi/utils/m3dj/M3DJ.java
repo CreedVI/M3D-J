@@ -50,14 +50,14 @@ public class M3DJ {
         int prt = MAGIC_LENGTH * 2; // Account for file header
 
         while (fileData.hasRemaining()) {
-
+            //todo:
         }
 
         return result;
     }
 
     private static M3DJ_Model M3DJ_LoadBinary(ByteBuffer fileData) {
-        M3DJ_Model result = new M3DJ_Model();
+        M3DJ_Model model = new M3DJ_Model();
 
         int ptr = MAGIC_LENGTH * 2; // Account for file header
         int chunkSize;
@@ -81,6 +81,9 @@ public class M3DJ {
             else if (magic.toString().equals("HEAD")) {
                 chunkSize = fileData.getInt();
                 ptr += Integer.BYTES;
+
+                model.header.scale = fileData.getFloat();
+                ptr += Float.BYTES;
 
                 for (int i = 0; i < chunkSize; i++) {
                     // todo: load header chunk
@@ -211,7 +214,7 @@ public class M3DJ {
             fileData.position(ptr);
         }
 
-        return result;
+        return model;
     }
 
 }

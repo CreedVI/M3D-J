@@ -1,0 +1,34 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.creedvi'
+version = '0.0.1'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+
+}
+
+jar {
+    manifest {
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.build.dependsOn jar
+
+sourceSets {
+    main {
+    }
+    test {
+        java.srcDir('src/tests')
+        resources.srcDir('src/test/resources')
+    }
+}
