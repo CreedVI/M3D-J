@@ -17,6 +17,8 @@ import static com.creedvi.utils.m3dj.model.chunks.VariableTypes.VariableType.UND
 public class M3DJ {
 
     private static final int MAGIC_LENGTH = 4;
+    private static final int M3D_NUMBONE = 4;
+    private static final int M3D_BONEMAXLEVEL = 64;
     private static boolean DEBUG = false;
 
     private static Tracelog logger;
@@ -187,35 +189,28 @@ public class M3DJ {
                     "\tModel: "  + model.header.title + "\n" +
                     "\tLicence: "  + model.header.licence + "\n" +
                     "\tAuthor: "  + model.header.author + "\n" +
-                    "\tDescription: "  + model.header.description + "\n"
+                    "\tDescription: "  + model.header.description
             );
         }
         else {
             logger.out(Tracelog.LogType.LOG_WARNING, "Bad data found. Failed to identify Header chunk where expected. Returning null object...");
+            return null;
         }
 
-        /*todo: bad file indication handling / variable limit checks
-        if(sizeof(M3D_FLOAT) == 4 && model->vc_s > 4) {
-            M3D_LOG("Double precision coordinates not supported, truncating to float...");
-            model->errcode = M3D_ERR_TRUNC;
+        if(model.header.VC_T.size > 4) {
+            logger.out(Tracelog.LogType.LOG_WARNING, "Double precision coordinates are not supported, coordinates will be truncated to float...");
         }
-        if((sizeof(M3D_INDEX) == 2 && (model->vi_s > 2 || model->si_s > 2 || model->ci_s > 2 || model->ti_s > 2 ||
-                model->bi_s > 2 || model->sk_s > 2 || model->fc_s > 2 || model->hi_s > 2 || model->fi_s > 2)) ||
-                (sizeof(M3D_VOXEL) < (size_t)model->vp_s && model->vp_s != 8)) {
-            M3D_LOG("32 bit indices not supported, unable to load model");
-            M3D_FREE(model);
-            return NULL;
+
+        if (model.header.VI_T.size > 2 || model.header.SI_T.size > 2 || model.header.CI_T.size > 2 ||
+                model.header.TI_T.size > 2 || model.header.BI_T.size > 2 || model.header.SK_T.size > 2 ||
+                model.header.FC_T.size > 2 || model.header.HI_T.size > 2 || model.header.FI_T.size > 2) {
+            logger.out(Tracelog.LogType.LOG_ERROR, "32 bit indices are not supported, unable to load model. Returning null object...");
         }
-        if(model->vi_s > 4 || model->si_s > 4 || model->vp_s == 4) {
-            M3D_LOG("Invalid index size, unable to load model");
-            M3D_FREE(model);
-            return NULL;
+
+        if(model.header.VI_T.size > 4 || model.header.SI_T.size > 4 || model.header.VP_T.size == 4) {
+            logger.out(Tracelog.LogType.LOG_ERROR, "Invalid index size, unable to load model. Returning null object...");
+            return null;
         }
-        if(model->nb_s > M3D_NUMBONE) {
-            M3D_LOG("Model has more bones per vertex than what importer was configured to support");
-            model->errcode = M3D_ERR_TRUNC;
-        }
-        */
 
         int end = fileData.limit() - 4;
         magic = new StringBuilder();
@@ -225,6 +220,11 @@ public class M3DJ {
         if (!magic.toString().equals("OMD3")) {
             logger.out(Tracelog.LogType.LOG_ERROR, "Missing end chunk. Returning null object...");
             return null;
+        }
+
+        if(model.header.NB_T.value > M3D_NUMBONE) {
+            logger.out(Tracelog.LogType.LOG_ERROR, "Model has more bones per vertex than what importer was configured to support");
+
         }
 
         while (fileData.hasRemaining()) {
@@ -421,7 +421,7 @@ public class M3DJ {
         byte[] buffer = new byte[1024];
 
         try {
-            while (!inflater.needsInput()) {
+            while (inflater.getRemaining() > 0) {
                 int decompressedSize = inflater.inflate(buffer);
                 outputStream.write(buffer, 0, decompressedSize);
             }

@@ -73,15 +73,17 @@ public class VariableTypes {
     }
 
     public enum BonesPerVertex {
-        ONE((byte) 0b00),
-        TWO((byte) 0b01),
-        FOUR((byte) 0b10),
-        EIGHT((byte) 0b11),
+        ONE((byte) 0b00, 1),
+        TWO((byte) 0b01, 2),
+        FOUR((byte) 0b10, 4),
+        EIGHT((byte) 0b11, 8),
         ;
 
         final public byte bytePattern;
-        BonesPerVertex(byte b) {
+        final public int value;
+        BonesPerVertex(byte b, int value) {
             this.bytePattern = b;
+            this.value =value;
         }
     }
 
