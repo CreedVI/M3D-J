@@ -5,6 +5,7 @@ import com.creedvi.utils.m3dj.io.Tracelog;
 import com.creedvi.utils.m3dj.model.M3DJ_Model;
 import com.creedvi.utils.m3dj.model.chunks.M3DJ_Color;
 import com.creedvi.utils.m3dj.model.chunks.M3DJ_TextureCoordinate;
+import com.creedvi.utils.m3dj.model.chunks.M3DJ_Vertex;
 import com.creedvi.utils.m3dj.model.chunks.VariableTypes;
 
 import java.io.*;
@@ -20,6 +21,12 @@ public class M3DJ {
     private static final int M3D_NUMBONE = 4;
     private static final int M3D_BONEMAXLEVEL = 64;
     private static boolean DEBUG = false;
+    private static boolean CMAP_Loaded = false;
+    private static boolean TMAP_Loaded = false;
+    private static boolean VRTS_Loaded = false;
+    private static boolean BONE_Loaded = false;
+    private static boolean VOXT_Loaded = false;
+
 
     private static Tracelog logger;
 
@@ -49,12 +56,12 @@ public class M3DJ {
 
             if (magic.toString().equals("3DMO")) {
                 fileSize = fileData.getInt();
-                logger.out(Tracelog.LogType.LOG_DEBUG, "Binary magic found. File size: " + fileSize);
+                logger.out(Tracelog.LogType.LOG_INFO, "Binary magic found. File size: " + fileSize + "B");
                 result = M3DJ_LoadBinary(fileData);
             }
             else if (magic.toString().equals("3dmo")) {
                 fileSize = fileData.getInt();
-                logger.out(Tracelog.LogType.LOG_DEBUG, "ASCII magic found. File size: " + fileSize);
+                logger.out(Tracelog.LogType.LOG_INFO, "ASCII magic found. File size: " + fileSize + "B");
                 result = M3DJ_LoadAscii(fileData);
             }
             else {
@@ -103,7 +110,7 @@ public class M3DJ {
         }
 
         if (!magic.toString().equals("HEAD")) {
-            logger.out(Tracelog.LogType.LOG_INFO, "Assumed compressed data; attempting to decompress...");
+            logger.out(Tracelog.LogType.LOG_INFO, "Failed to identify header; assuming compressed data and attempting to decompress...");
             fileData = DecompressDataBuffer(fileData.slice(fileData.position() - (Byte.BYTES * 4), fileData.remaining()));
 
             magic = new StringBuilder();
@@ -117,6 +124,9 @@ public class M3DJ {
             logger.out(Tracelog.LogType.LOG_DEBUG, "Header chunk size: " + chunkSize);
 
             model.header.scale = fileData.getFloat();
+            if (model.header.scale <= 0.0f) {
+                model.header.scale = 1.0f;
+            }
             logger.out(Tracelog.LogType.LOG_DEBUG, "Scaling factor: " + model.header.scale);
 
             int bitField = fileData.getInt();
@@ -201,12 +211,6 @@ public class M3DJ {
             logger.out(Tracelog.LogType.LOG_WARNING, "Double precision coordinates are not supported, coordinates will be truncated to float...");
         }
 
-        if (model.header.VI_T.size > 2 || model.header.SI_T.size > 2 || model.header.CI_T.size > 2 ||
-                model.header.TI_T.size > 2 || model.header.BI_T.size > 2 || model.header.SK_T.size > 2 ||
-                model.header.FC_T.size > 2 || model.header.HI_T.size > 2 || model.header.FI_T.size > 2) {
-            logger.out(Tracelog.LogType.LOG_ERROR, "32 bit indices are not supported, unable to load model. Returning null object...");
-        }
-
         if(model.header.VI_T.size > 4 || model.header.SI_T.size > 4 || model.header.VP_T.size == 4) {
             logger.out(Tracelog.LogType.LOG_ERROR, "Invalid index size, unable to load model. Returning null object...");
             return null;
@@ -239,8 +243,26 @@ public class M3DJ {
 
             switch (magic.toString()) {
                 case "CMAP":
-                    chunkSize = fileData.getInt();
+                    if (CMAP_Loaded){
+                        logger.out(Tracelog.LogType.LOG_ERROR, "Additional color map chunk encountered. Color map chunk must be unique.");
+                        continue;
+                    }
+                    if (model.header.TI_T == UNDEFINED) {
+                        logger.out(Tracelog.LogType.LOG_ERROR, "Encountered color map chunk while datatype is null.");
+                        continue;
+                    }
+                    CMAP_Loaded = true;
+
+                    // Chunk size includes the length of Magic and Integer value, so we have to account that
+                    // we've already processed those bytes by subtracting them from the chunk size.
+                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+                    int colorSize = 4;
+                    int numColors = chunkSize / colorSize;
+
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected Number of Colours: " + numColors);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Colour unit size: " + colorSize + " bytes");
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + (fileData.position() + chunkSize));
 
                     for (int i = 0; i < chunkSize; i++) {
                         M3DJ_Color color = new M3DJ_Color();
@@ -251,15 +273,31 @@ public class M3DJ {
 
                         model.colorMap.colors.add(color);
                     }
+
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Colours Loaded: " + model.colorMap.colors.size());
+
                     break;
 
                 case "TMAP":
-                    chunkSize = fileData.getInt();
-                    int numTexCoords = (chunkSize/(model.header.VC_T.size * 2));
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current Position: " + fileData.position());
+                    if (TMAP_Loaded){
+                        logger.out(Tracelog.LogType.LOG_ERROR, "Additional texture map chunk encountered. Texture map chunk must be unique.");
+                        continue;
+                    }
+                    if (model.header.TI_T == UNDEFINED) {
+                        logger.out(Tracelog.LogType.LOG_ERROR, "Encountered texture map chunk while datatype is null.");
+                        continue;
+                    }
+                    TMAP_Loaded = true;
 
+                    // Chunk size includes the length of Magic and Integer value, so we have to account that
+                    // we've already processed those bytes by subtracting them from the chunk size.
+                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+                    int texCoordSize = (model.header.VC_T.size * 2);
+                    int numTexCoords = (chunkSize/texCoordSize);
+
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected Number of Texture Coordinates: " + numTexCoords);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Texture coordinate size: " + texCoordSize + " bytes");
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + (fileData.position() + chunkSize));
 
                     for (int i = 0; i < numTexCoords; i++) {
@@ -287,22 +325,116 @@ public class M3DJ {
                         }
                     }
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Texture Coordinates Loaded: " + model.textureMap.map.size());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
 
                     break;
 
                 case "VRTS":
-                    chunkSize = fileData.getInt();
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    if (VRTS_Loaded){
+                        logger.out(Tracelog.LogType.LOG_ERROR, "Additional vertex data chunk encountered. Vertex data chunk must be unique.");
+                        continue;
+                    }
+                    if (model.header.CI_T != UNDEFINED && model.header.CI_T.size < 4 && !CMAP_Loaded) {
+                        logger.out(Tracelog.LogType.LOG_WARNING, "No Color map loaded prior to vertex data. There may be issues with the model.");
+                    }
+                    VRTS_Loaded = true;
 
-                    for (int i = 0; i < chunkSize; i++) {
-                        // todo: load vertices
-                        fileData.get();
+                    // Chunk size includes the length of Magic and Integer value, so we have to account that
+                    // we've already processed those bytes by subtracting them from the chunk size.
+                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+                    int vertexSize = (model.header.VC_T.size * 4) + model.header.CI_T.size + model.header.SK_T.size;
+                    int numVertices = chunkSize / vertexSize;
+
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected Number of Texture Coordinates: " + numVertices);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Texture coordinate size: " + vertexSize + " bytes");
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + (fileData.position() + chunkSize));
+
+                    for (int i = 0; i < numVertices; i++) {
+                        M3DJ_Vertex vertex = new M3DJ_Vertex();
+
+                        // Load vector component
+                        switch (model.header.VC_T) {
+                            case INT8 -> {
+                                vertex.x = (fileData.get() / 127.0);
+                                vertex.y = (fileData.get() / 127.0);
+                                vertex.z = (fileData.get() / 127.0);
+                                vertex.w = (fileData.get() / 127.0);
+                            }
+                            case INT16 -> {
+                                vertex.x = (fileData.getShort() / 32767.0);
+                                vertex.y = (fileData.getShort() / 32767.0);
+                                vertex.z = (fileData.getShort() / 32767.0);
+                                vertex.w = (fileData.getShort() / 32767.0);
+                            }
+                            case FLOAT -> {
+                                vertex.x = fileData.getFloat();
+                                vertex.y = fileData.getFloat();
+                                vertex.z = fileData.getFloat();
+                                vertex.w = fileData.getFloat();
+                            }
+                            case DOUBLE -> {
+                                vertex.x = fileData.getDouble();
+                                vertex.y = fileData.getDouble();
+                                vertex.z = fileData.getDouble();
+                                vertex.w = fileData.getDouble();
+                            }
+                        }
+
+                        // Load colour index component
+                        switch (model.header.CI_T) {
+                            case UINT8 -> {
+                                vertex.colorIndex = fileData.get();
+                            }
+                            case UINT16 -> {
+                                vertex.colorIndex = fileData.getShort();
+                            }
+                            case UINT32 -> {
+                                vertex.colorIndex = fileData.getInt();
+                            }
+                            case UNDEFINED -> {
+                                vertex.colorIndex = -1;
+                            }
+                        }
+
+                        // Load skin index component
+                        switch (model.header.SK_T) {
+                            case UINT8 -> {
+                                vertex.skinIndex = fileData.get();
+                            }
+                            case UINT16 -> {
+                                vertex.skinIndex = fileData.getShort();
+                            }
+                            case UINT32 -> {
+                                vertex.skinIndex = fileData.getInt();
+                            }
+                            case UNDEFINED -> {
+                                vertex.skinIndex = -1;
+                            }
+                        }
+
+                        model.vertices.add(vertex);
                     }
                     break;
 
                 case "BONE":
-                    chunkSize = fileData.getInt();
+                    if (BONE_Loaded){
+                        logger.out(Tracelog.LogType.LOG_ERROR, "Additional bone data chunk encountered. Bone data chunk must be unique.");
+                        continue;
+                    }
+                    if (model.header.BI_T == UNDEFINED) {
+                        logger.out(Tracelog.LogType.LOG_ERROR, "Encountered bone data chunk while datatype is null.");
+                        continue;
+                    }
+                    if (!VRTS_Loaded) {
+                        logger.out(Tracelog.LogType.LOG_ERROR, "No vertex data was loaded prior to bone data.");
+                        break;
+                    }
+                    TMAP_Loaded = true;
+                    
+                    // Chunk size includes the length of Magic and Integer value, so we have to account that
+                    // we've already processed those bytes by subtracting them from the chunk size.
+                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -312,7 +444,10 @@ public class M3DJ {
                     break;
 
                 case "MTRL":
-                    chunkSize = fileData.getInt();
+                    // Chunk size includes the length of Magic and Integer value, so we have to account that
+                    // we've already processed those bytes by subtracting them from the chunk size.
+                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -322,7 +457,10 @@ public class M3DJ {
                     break;
 
                 case "PROC":
-                    chunkSize = fileData.getInt();
+                    // Chunk size includes the length of Magic and Integer value, so we have to account that
+                    // we've already processed those bytes by subtracting them from the chunk size.
+                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -332,7 +470,10 @@ public class M3DJ {
                     break;
 
                 case "MESH":
-                    chunkSize = fileData.getInt();
+                    // Chunk size includes the length of Magic and Integer value, so we have to account that
+                    // we've already processed those bytes by subtracting them from the chunk size.
+                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -342,7 +483,10 @@ public class M3DJ {
                     break;
 
                 case "SHPE":
-                    chunkSize = fileData.getInt();
+                    // Chunk size includes the length of Magic and Integer value, so we have to account that
+                    // we've already processed those bytes by subtracting them from the chunk size.
+                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -352,7 +496,10 @@ public class M3DJ {
                     break;
 
                 case "VOXT":
-                    chunkSize = fileData.getInt();
+                    // Chunk size includes the length of Magic and Integer value, so we have to account that
+                    // we've already processed those bytes by subtracting them from the chunk size.
+                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -362,7 +509,10 @@ public class M3DJ {
                     break;
 
                 case "VOXD":
-                    chunkSize = fileData.getInt();
+                    // Chunk size includes the length of Magic and Integer value, so we have to account that
+                    // we've already processed those bytes by subtracting them from the chunk size.
+                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -372,7 +522,10 @@ public class M3DJ {
                     break;
 
                 case "LBLS":
-                    chunkSize = fileData.getInt();
+                    // Chunk size includes the length of Magic and Integer value, so we have to account that
+                    // we've already processed those bytes by subtracting them from the chunk size.
+                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -382,7 +535,10 @@ public class M3DJ {
                     break;
 
                 case "ACTN":
-                    chunkSize = fileData.getInt();
+                    // Chunk size includes the length of Magic and Integer value, so we have to account that
+                    // we've already processed those bytes by subtracting them from the chunk size.
+                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -392,7 +548,10 @@ public class M3DJ {
                     break;
 
                 case "ASET":
-                    chunkSize = fileData.getInt();
+                    // Chunk size includes the length of Magic and Integer value, so we have to account that
+                    // we've already processed those bytes by subtracting them from the chunk size.
+                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -402,12 +561,16 @@ public class M3DJ {
                     break;
 
                 case "OMD3":
-                    //todo: exit
-                    break;
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "End of file reached.");
+                    return model;
 
                 default:
+                    logger.out(Tracelog.LogType.LOG_WARNING, "Unexpected magic value encountered:" +
+                            "\n\t" + magic + " at position " + fileData.position() + ". Attempting to skip and continue parsing...");
                     break;
             }
+
+            logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
         }
 
         return model;

@@ -2,5 +2,6 @@ tests/
 assets/
 out/
 .idea/
+.gradle/
 META-INF/
 build/

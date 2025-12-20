@@ -1,9 +1,8 @@
 package com.creedvi.utils.m3dj.model;
 
-import com.creedvi.utils.m3dj.model.chunks.M3DJ_ColorMap;
-import com.creedvi.utils.m3dj.model.chunks.M3DJ_Header;
-import com.creedvi.utils.m3dj.model.chunks.M3DJ_Preview;
-import com.creedvi.utils.m3dj.model.chunks.M3DJ_TextureMap;
+import com.creedvi.utils.m3dj.model.chunks.*;
+
+import java.util.ArrayList;
 
 public class M3DJ_Model {
 
@@ -11,12 +10,14 @@ public class M3DJ_Model {
     public M3DJ_Header header;
     public M3DJ_ColorMap colorMap;
     public M3DJ_TextureMap textureMap;
+    public ArrayList<M3DJ_Vertex> vertices;
 
     public M3DJ_Model() {
         this.preview = new M3DJ_Preview();
         this.header = new M3DJ_Header();
         this.colorMap = new M3DJ_ColorMap();
         this.textureMap = new M3DJ_TextureMap();
+        this.vertices = new ArrayList<>();
     }
 
 }

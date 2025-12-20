@@ -1,5 +1,8 @@
 package com.creedvi.utils.m3dj.model.chunks;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
 import static com.creedvi.utils.m3dj.model.chunks.VariableTypes.BonesPerVertex.*;
 import static com.creedvi.utils.m3dj.model.chunks.VariableTypes.VariableType.*;
 import static com.creedvi.utils.m3dj.model.chunks.VariableTypes.VertexCoordType.*;
@@ -58,8 +61,8 @@ public class VariableTypes {
         if (bytePattern == UINT8.bytePattern) {
             return UINT8;
         }
-        else if (bytePattern == VariableType.UINT16.bytePattern) {
-            return VariableType.UINT16;
+        else if (bytePattern == UINT16.bytePattern) {
+            return UINT16;
         }
         else if (bytePattern == UINT32.bytePattern) {
             return UINT32;
