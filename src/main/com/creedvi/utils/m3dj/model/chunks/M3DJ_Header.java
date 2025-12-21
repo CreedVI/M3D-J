@@ -3,6 +3,8 @@ package com.creedvi.utils.m3dj.model.chunks;
 import com.creedvi.utils.m3dj.io.Tracelog;
 import com.creedvi.utils.m3dj.model.chunks.VariableTypes.*;
 
+import java.util.ArrayList;
+
 public class M3DJ_Header {
 
     public float scale;
@@ -10,6 +12,7 @@ public class M3DJ_Header {
     public String author;
     public String licence;
     public String description;
+    public ArrayList<String> stringTable;
 
     public VertexCoordType VC_T;
     public VariableType VI_T;

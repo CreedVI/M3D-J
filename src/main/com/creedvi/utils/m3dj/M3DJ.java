@@ -11,6 +11,7 @@ import com.creedvi.utils.m3dj.model.chunks.VariableTypes;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.zip.*;
 
 import static com.creedvi.utils.m3dj.model.chunks.VariableTypes.VariableType.UNDEFINED;
@@ -168,31 +169,24 @@ public class M3DJ {
 
             model.header.DumpBitField(logger);
 
-            byte b;
-            do {
-                b = fileData.get();
-                if ((char) b != '\0') {
-                    model.header.title += (char) b;
-                }
-            } while ((char) b != '\0');
-            do {
-                b = fileData.get();
-                if ((char) b != '\0') {
-                    model.header.licence += (char) b;
-                }
-            } while ((char) b != '\0');
-            do {
-                b = fileData.get();
-                if ((char) b != '\0') {
-                    model.header.author += (char) b;
-                }
-            } while ((char) b != '\0');
-            do {
-                b = fileData.get();
-                if ((char) b != '\0') {
-                    model.header.description += (char) b;
-                }
-            } while ((char) b != '\0');
+            String table = "";
+            while (fileData.position() < chunkSize) {
+                table += (char) fileData.get();
+            }
+
+            String[] records = table.split("\0");
+
+            model.header.title = records[0];
+            model.header.licence = records[1];
+            model.header.author = records[2];
+
+            if (records.length > 3) {
+                model.header.description = records[3];
+                model.header.stringTable.addAll(Arrays.asList(records).subList(3, records.length));
+            }
+            else {
+                model.header.description = "";
+            }
 
             logger.out(Tracelog.LogType.LOG_INFO,
            "Model metadata:\n" +
@@ -429,7 +423,7 @@ public class M3DJ {
                         logger.out(Tracelog.LogType.LOG_ERROR, "No vertex data was loaded prior to bone data.");
                         break;
                     }
-                    TMAP_Loaded = true;
+                    BONE_Loaded = true;
                     
                     // Chunk size includes the length of Magic and Integer value, so we have to account that
                     // we've already processed those bytes by subtracting them from the chunk size.
@@ -470,6 +464,10 @@ public class M3DJ {
                     break;
 
                 case "MESH":
+                    if (!VRTS_Loaded) {
+                        logger.out(Tracelog.LogType.LOG_ERROR, "No vertex data loaded prior to mesh data.");
+                    }
+
                     // Chunk size includes the length of Magic and Integer value, so we have to account that
                     // we've already processed those bytes by subtracting them from the chunk size.
                     chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
@@ -496,6 +494,7 @@ public class M3DJ {
                     break;
 
                 case "VOXT":
+                    VOXT_Loaded = true;
                     // Chunk size includes the length of Magic and Integer value, so we have to account that
                     // we've already processed those bytes by subtracting them from the chunk size.
                     chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
@@ -573,7 +572,8 @@ public class M3DJ {
             logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
         }
 
-        return model;
+        // Model is only valid if end chunk exists.
+        return null;
     }
 
     private static ByteBuffer DecompressDataBuffer(ByteBuffer compressedData) {
