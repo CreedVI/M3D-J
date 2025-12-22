@@ -3,10 +3,7 @@ package com.creedvi.utils.m3dj;
 import com.creedvi.utils.m3dj.io.IO;
 import com.creedvi.utils.m3dj.io.Tracelog;
 import com.creedvi.utils.m3dj.model.M3DJ_Model;
-import com.creedvi.utils.m3dj.model.chunks.M3DJ_Color;
-import com.creedvi.utils.m3dj.model.chunks.M3DJ_TextureCoordinate;
-import com.creedvi.utils.m3dj.model.chunks.M3DJ_Vertex;
-import com.creedvi.utils.m3dj.model.chunks.VariableTypes;
+import com.creedvi.utils.m3dj.model.chunks.*;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -18,10 +15,14 @@ import static com.creedvi.utils.m3dj.model.chunks.VariableTypes.VariableType.UND
 
 public class M3DJ {
 
+
     private static final int MAGIC_LENGTH = 4;
     private static final int M3D_NUMBONE = 4;
     private static final int M3D_BONEMAXLEVEL = 64;
+    private static final int M3D_UNDEF = -1;
+
     private static boolean DEBUG = false;
+    private static boolean VERTEX_MAX = false;
     private static boolean CMAP_Loaded = false;
     private static boolean TMAP_Loaded = false;
     private static boolean VRTS_Loaded = false;
@@ -33,6 +34,10 @@ public class M3DJ {
 
     public static void __SetDebug(boolean b) {
         DEBUG = b;
+    }
+
+    public static void __SetVertexMax(boolean b) {
+        VERTEX_MAX = b;
     }
 
     public static M3DJ_Model M3DJ_Load(String fileName) throws IOException {
@@ -210,10 +215,10 @@ public class M3DJ {
             return null;
         }
 
-        int end = fileData.limit() - 4;
+        int endChunkPosition = fileData.limit() - 4;
         magic = new StringBuilder();
         for (int i = 0; i < MAGIC_LENGTH; i++) {
-            magic.append((char) (fileData.get(end + i)));
+            magic.append((char) (fileData.get(endChunkPosition + i)));
         }
         if (!magic.toString().equals("OMD3")) {
             logger.out(Tracelog.LogType.LOG_ERROR, "Missing end chunk. Returning null object...");
@@ -233,7 +238,6 @@ public class M3DJ {
 
             logger.out(Tracelog.LogType.LOG_DEBUG, "===");
             logger.out(Tracelog.LogType.LOG_DEBUG, "Magic reads: " + magic);
-            logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
 
             switch (magic.toString()) {
                 case "CMAP":
@@ -289,6 +293,7 @@ public class M3DJ {
                     int texCoordSize = (model.header.VC_T.size * 2);
                     int numTexCoords = (chunkSize/texCoordSize);
 
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected Number of Texture Coordinates: " + numTexCoords);
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Texture coordinate size: " + texCoordSize + " bytes");
@@ -338,6 +343,7 @@ public class M3DJ {
                     int vertexSize = (model.header.VC_T.size * 4) + model.header.CI_T.size + model.header.SK_T.size;
                     int numVertices = chunkSize / vertexSize;
 
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected Number of Texture Coordinates: " + numVertices);
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Texture coordinate size: " + vertexSize + " bytes");
@@ -429,6 +435,7 @@ public class M3DJ {
                     // we've already processed those bytes by subtracting them from the chunk size.
                     chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
 
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -442,12 +449,42 @@ public class M3DJ {
                     // we've already processed those bytes by subtracting them from the chunk size.
                     chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
 
+                    M3DJ_Material material = new M3DJ_Material();
+
+                    switch (model.header.SI_T) {
+                        case UINT8 -> {
+                            byte stringIndex = fileData.get();
+                            material.name = model.header.stringTable.get(stringIndex);
+                        }
+                        case UINT16 -> {
+                            short stringIndex = fileData.getShort();
+                            material.name = model.header.stringTable.get(stringIndex);
+                        }
+                        case UINT32 -> {
+                            int stringIndex = fileData.getInt();
+                            material.name = model.header.stringTable.get(stringIndex);
+                        }
+                        case UNDEFINED -> {
+                            material.name = "How did you manage this.";
+                        }
+                    }
+
+                    for (M3DJ_Material mat: model.materials) {
+                        if (mat.name.equals(material.name)) {
+                            logger.out(Tracelog.LogType.LOG_ERROR, "Multiple definitions for material " + material.name + ".");
+                            break;
+                        }
+                    }
+
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (int i = 0; i < chunkSize; i++) {
+                    for (int i = model.header.SI_T.size; i < chunkSize - model.header.SI_T.size; i++) {
                         // todo: load materials
                         fileData.get();
                     }
+
+                    model.materials.add(material);
                     break;
 
                 case "PROC":
@@ -455,6 +492,7 @@ public class M3DJ {
                     // we've already processed those bytes by subtracting them from the chunk size.
                     chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
 
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -472,11 +510,173 @@ public class M3DJ {
                     // we've already processed those bytes by subtracting them from the chunk size.
                     chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
 
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + (fileData.position() + chunkSize));
 
-                    for (int i = 0; i < chunkSize; i++) {
+                    int materialIndex = M3D_UNDEF;
+                    int parameterIndex = M3D_UNDEF;
+
+                    for (int chunkEnd = fileData.position() + chunkSize; fileData.position() < chunkEnd; ) {
+                        logger.out(Tracelog.LogType.LOG_DEBUG, "Position: " + fileData.position());
+
                         // todo: load meshes
+                        byte recordMagic = fileData.get();
                         fileData.get();
+                        byte n = (byte) (recordMagic >> 4);
+                        byte k = (byte) (recordMagic & 15);
+
+                        String bin = Integer.toBinaryString(recordMagic);
+                        String pad = String.format("%8s", bin);
+                        String result = pad.replace(' ', '0');
+                        logger.out(Tracelog.LogType.LOG_DEBUG, "Record Magic: " + result);
+
+                        bin = Integer.toBinaryString(n);
+                        pad = String.format("%8s", bin);
+                        result = pad.replace(' ', '0');
+                        logger.out(Tracelog.LogType.LOG_DEBUG, "Record n: " + result);
+
+
+                        bin = Integer.toBinaryString(k);
+                        pad = String.format("%8s", bin);
+                        result = pad.replace(' ', '0');
+                        logger.out(Tracelog.LogType.LOG_DEBUG, "Record k: " + result);
+
+                        if(n == 0) {
+                            if (k == 0) {
+                                String name = ReadString(fileData, model.header.SI_T.size);
+                                if (!name.isEmpty()) {
+                                    for (int i = 0; i < model.materials.size(); i++) {
+                                        if (name.equals(model.materials.get(i).name)) {
+                                            materialIndex = i;
+                                            break;
+                                        }
+                                    }
+                                    if (materialIndex == M3D_UNDEF) {
+                                        logger.out(Tracelog.LogType.LOG_ERROR, "Model references unknown material: " + name + ".");
+                                    }
+                                }
+                            }
+                            else {
+                                String name = ReadString(fileData, model.header.SI_T.size);
+                                if (VERTEX_MAX) {
+                                    if (!name.isEmpty()) {
+                                        for (int i = 0; i < model.parameters.size(); i++) {
+                                            if (name.equals(model.parameters.get(i).name)) {
+                                                parameterIndex = i;
+                                                break;
+                                            }
+                                        }
+                                        if (parameterIndex == M3D_UNDEF) {
+                                            M3DJ_Parameter p = new M3DJ_Parameter();
+                                            p.name = name;
+                                            p.count = 0;
+                                            model.parameters.add(p);
+                                            parameterIndex = model.parameters.size();
+                                        }
+                                    }
+                                }
+                                continue;
+                            }
+                        }
+
+                        if (n != 3) {
+                            logger.out(Tracelog.LogType.LOG_ERROR, "Only triangle meshes are supported by M3D SDK at this time. Returning null object...");
+                            return null;
+                        }
+
+                        M3DJ_Face face = new M3DJ_Face();
+                        face.materialId = materialIndex;
+                        if (VERTEX_MAX) {
+                            face.paramId = parameterIndex;
+                        }
+
+                        int j;
+                        for (j = 0; fileData.position() < chunkEnd && j < n; j++) {
+                            switch (model.header.VI_T) {
+                                case UINT8 -> {
+                                    face.vertices[j] = fileData.get();
+                                }
+                                case UINT16 -> {
+                                    face.vertices[j] = fileData.getShort();
+                                }
+                                case UINT32 -> {
+                                    face.vertices[j] = fileData.getInt();
+                                }
+                                case UNDEFINED -> {
+                                }
+                            }
+
+                            if((k & 1) != 0) {
+                                switch (model.header.TI_T) {
+                                    case UINT8 -> {
+                                        face.texCoords[j] = fileData.get();
+                                    }
+                                    case UINT16 -> {
+                                        face.texCoords[j] = fileData.getShort();
+                                    }
+                                    case UINT32 -> {
+                                        face.texCoords[j] = fileData.getInt();
+                                    }
+                                    case UNDEFINED -> {
+                                    }
+                                }
+                            }
+
+                            if((k & 2) != 0) {
+                                switch (model.header.VI_T) {
+                                    case UINT8 -> {
+                                        face.normals[j] = fileData.get();
+                                    }
+                                    case UINT16 -> {
+                                        face.normals[j] = fileData.getShort();
+                                    }
+                                    case UINT32 -> {
+                                        face.normals[j] = fileData.getInt();
+                                    }
+                                    case UNDEFINED -> {
+                                    }
+                                }
+                            }
+
+                            if ((k & 4) != 0) {
+                                if(VERTEX_MAX) {
+                                    switch (model.header.VI_T) {
+                                        case UINT8 -> {
+                                            face.vertMax[j] = fileData.get();
+                                        }
+                                        case UINT16 -> {
+                                            face.vertMax[j] = fileData.getShort();
+                                        }
+                                        case UINT32 -> {
+                                            face.vertMax[j] = fileData.getInt();
+                                        }
+                                        case UNDEFINED -> {
+                                        }
+                                    }
+                                }
+                                else {
+                                    switch (model.header.VI_T) {
+                                        case UINT8 -> {
+                                            fileData.get();
+                                        }
+                                        case UINT16 -> {
+                                            fileData.getShort();
+                                        }
+                                        case UINT32 -> {
+                                            fileData.getInt();
+                                        }
+                                        case UNDEFINED -> {
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (j != n) {
+                            logger.out(Tracelog.LogType.LOG_ERROR, "Invalid mesh found. Returning null object...");
+                            return null;
+                        }
+                        model.faces.add(face);
                     }
                     break;
 
@@ -485,6 +685,7 @@ public class M3DJ {
                     // we've already processed those bytes by subtracting them from the chunk size.
                     chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
 
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -499,6 +700,7 @@ public class M3DJ {
                     // we've already processed those bytes by subtracting them from the chunk size.
                     chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
 
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -512,6 +714,7 @@ public class M3DJ {
                     // we've already processed those bytes by subtracting them from the chunk size.
                     chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
 
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -525,6 +728,7 @@ public class M3DJ {
                     // we've already processed those bytes by subtracting them from the chunk size.
                     chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
 
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -538,6 +742,7 @@ public class M3DJ {
                     // we've already processed those bytes by subtracting them from the chunk size.
                     chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
 
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -551,6 +756,7 @@ public class M3DJ {
                     // we've already processed those bytes by subtracting them from the chunk size.
                     chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
 
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
                     for (int i = 0; i < chunkSize; i++) {
@@ -560,6 +766,7 @@ public class M3DJ {
                     break;
 
                 case "OMD3":
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "End of file reached.");
                     return model;
 
@@ -572,8 +779,26 @@ public class M3DJ {
             logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
         }
 
-        // Model is only valid if end chunk exists.
+        // Model is only valid if endChunkPosition chunk exists.
         return null;
+    }
+
+    private static String ReadString(ByteBuffer fileData, int stringOffset) {
+        String result = "";
+        char c;
+
+        do {
+            c = (char) fileData.get();
+            if (c != '\0') {
+                result += c;
+            }
+        } while(c != '\0');
+
+        for (int i = 0; i < stringOffset; i++) {
+            fileData.get();
+        }
+
+        return result;
     }
 
     private static ByteBuffer DecompressDataBuffer(ByteBuffer compressedData) {
