@@ -1,8 +1,5 @@
 package com.creedvi.utils.m3dj.model.chunks;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-
 import static com.creedvi.utils.m3dj.model.chunks.VariableTypes.BonesPerVertex.*;
 import static com.creedvi.utils.m3dj.model.chunks.VariableTypes.VariableType.*;
 import static com.creedvi.utils.m3dj.model.chunks.VariableTypes.VertexCoordType.*;

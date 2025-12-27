@@ -10,7 +10,7 @@ repositories {
 }
 
 dependencies {
-
+    testImplementation(files("assets/Raylib-J.jar"))
 }
 
 jar {

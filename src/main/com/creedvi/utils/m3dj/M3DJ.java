@@ -12,14 +12,15 @@ import java.util.Arrays;
 import java.util.zip.*;
 
 import static com.creedvi.utils.m3dj.model.chunks.VariableTypes.VariableType.UNDEFINED;
+import static com.creedvi.utils.m3dj.model.chunks.M3DJ_Property.*;
 
 public class M3DJ {
 
+    public static final int M3D_UNDEF = -1;
 
     private static final int MAGIC_LENGTH = 4;
-    private static final int M3D_NUMBONE = 4;
+    public static final int M3D_NUMBONE = 4;
     private static final int M3D_BONEMAXLEVEL = 64;
-    private static final int M3D_UNDEF = -1;
 
     private static boolean DEBUG = false;
     private static boolean VERTEX_MAX = false;
@@ -269,10 +270,10 @@ public class M3DJ {
                         color.g = fileData.get();
                         color.r = fileData.get();
 
-                        model.colorMap.colors.add(color);
+                        model.colors.add(color);
                     }
 
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Colours Loaded: " + model.colorMap.colors.size());
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Colours Loaded: " + model.colors.size());
 
                     break;
 
@@ -304,26 +305,26 @@ public class M3DJ {
                             case INT8 -> {
                                 byte u = fileData.get();
                                 byte v = fileData.get();
-                                model.textureMap.map.add(new M3DJ_TextureCoordinate(u/255.0, v/255.0));
+                                model.textureMap.add(new M3DJ_TextureCoordinate(u/255.0, v/255.0));
                             }
                             case INT16 -> {
                                 short u = fileData.getShort();
                                 short v = fileData.getShort();
-                                model.textureMap.map.add(new M3DJ_TextureCoordinate(u/35535.0, v/35535.0));
+                                model.textureMap.add(new M3DJ_TextureCoordinate(u/35535.0, v/35535.0));
                             }
                             case FLOAT -> {
                                 float u = fileData.getFloat();
                                 float v = fileData.getFloat();
-                                model.textureMap.map.add(new M3DJ_TextureCoordinate(u, v));
+                                model.textureMap.add(new M3DJ_TextureCoordinate(u, v));
                             }
                             case DOUBLE -> {
                                 double u = fileData.getDouble();
                                 double v = fileData.getDouble();
-                                model.textureMap.map.add(new M3DJ_TextureCoordinate(u, v));
+                                model.textureMap.add(new M3DJ_TextureCoordinate(u, v));
                             }
                         }
                     }
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Texture Coordinates Loaded: " + model.textureMap.map.size());
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Texture Coordinates Loaded: " + model.textureMap.size());
 
                     break;
 
@@ -383,10 +384,20 @@ public class M3DJ {
                         // Load colour index component
                         switch (model.header.CI_T) {
                             case UINT8 -> {
-                                vertex.colorIndex = fileData.get();
+                                if (!model.colors.isEmpty()) {
+                                    vertex.colorIndex = fileData.get();
+                                }
+                                else {
+                                    vertex.colorIndex = 0;
+                                }
                             }
                             case UINT16 -> {
-                                vertex.colorIndex = fileData.getShort();
+                                if (!model.colors.isEmpty()) {
+                                    vertex.colorIndex = fileData.getShort();
+                                }
+                                else {
+                                    vertex.colorIndex = 0;
+                                }
                             }
                             case UINT32 -> {
                                 vertex.colorIndex = fileData.getInt();
@@ -395,22 +406,7 @@ public class M3DJ {
                                 vertex.colorIndex = -1;
                             }
                         }
-
-                        // Load skin index component
-                        switch (model.header.SK_T) {
-                            case UINT8 -> {
-                                vertex.skinIndex = fileData.get();
-                            }
-                            case UINT16 -> {
-                                vertex.skinIndex = fileData.getShort();
-                            }
-                            case UINT32 -> {
-                                vertex.skinIndex = fileData.getInt();
-                            }
-                            case UNDEFINED -> {
-                                vertex.skinIndex = -1;
-                            }
-                        }
+                        vertex.skinIndex = M3D_UNDEF;
 
                         model.vertices.add(vertex);
                     }
@@ -481,7 +477,79 @@ public class M3DJ {
 
                     for (int i = model.header.SI_T.size; i < chunkSize - model.header.SI_T.size; i++) {
                         // todo: load materials
+                        M3DJ_Property property = new M3DJ_Property();
+
+                        int propValue = Byte.toUnsignedInt(fileData.get());
                         fileData.get();
+
+                        if (propValue >= 128) {
+                            property.format = PropertyFormat.MAP;
+                        }
+                        else {
+                            for (int k = 256, j = 0; j < propertyTypes.length; j++) {
+                                if (k == propertyTypes[i].id) {
+                                    property.format = propertyTypes[i].format;
+                                    break;
+                                }
+                            }
+                        }
+
+                        switch (property.format) {
+                            case COLOR:
+                                switch (model.header.CI_T) {
+                                    case UINT8:
+                                        if (!model.colors.isEmpty()) {
+                                            property.SetPropertyValue(fileData.get());
+                                        }
+                                        else {
+                                            property.SetPropertyValue(0);
+                                        }
+                                        fileData.get();
+                                        break;
+                                    case UINT16:
+                                        if (!model.colors.isEmpty()) {
+                                            property.SetPropertyValue(fileData.getShort());
+                                        }
+                                        else {
+                                            property.SetPropertyValue(0);
+                                        }
+                                        break;
+                                    case UINT32:
+                                        if (!model.colors.isEmpty()) {
+                                            property.SetPropertyValue(fileData.getInt());
+                                        }
+                                        else {
+                                            property.SetPropertyValue(0);
+                                        }
+                                        break;
+                                }
+                                break;
+
+                            case UINT8:
+                                property.SetPropertyValue(fileData.get());
+                                fileData.get();
+                                break;
+                            case UINT16:
+                                property.SetPropertyValue(fileData.getShort());
+                                break;
+                            case UINT32:
+                                property.SetPropertyValue(fileData.getInt());
+                                break;
+                            case FLOAT:
+                                property.SetPropertyValue(fileData.getFloat());
+                                break;
+
+                            case MAP:
+                                String name = ReadString(fileData, model.header.SI_T.size);
+                                //todo: get textureId from string...
+                                //property.SetPropertyValue();
+                                break;
+                            default:
+                                logger.out(Tracelog.LogType.LOG_WARNING, "Unknown material property encountered in " + material.name);
+                                break;
+                        }
+
+                        material.properties.add(property);
                     }
 
                     model.materials.add(material);
@@ -518,32 +586,15 @@ public class M3DJ {
                     int parameterIndex = M3D_UNDEF;
 
                     for (int chunkEnd = fileData.position() + chunkSize; fileData.position() < chunkEnd; ) {
-                        logger.out(Tracelog.LogType.LOG_DEBUG, "Position: " + fileData.position());
 
-                        // todo: load meshes
                         byte recordMagic = fileData.get();
                         fileData.get();
                         byte n = (byte) (recordMagic >> 4);
                         byte k = (byte) (recordMagic & 15);
 
-                        String bin = Integer.toBinaryString(recordMagic);
-                        String pad = String.format("%8s", bin);
-                        String result = pad.replace(' ', '0');
-                        logger.out(Tracelog.LogType.LOG_DEBUG, "Record Magic: " + result);
-
-                        bin = Integer.toBinaryString(n);
-                        pad = String.format("%8s", bin);
-                        result = pad.replace(' ', '0');
-                        logger.out(Tracelog.LogType.LOG_DEBUG, "Record n: " + result);
-
-
-                        bin = Integer.toBinaryString(k);
-                        pad = String.format("%8s", bin);
-                        result = pad.replace(' ', '0');
-                        logger.out(Tracelog.LogType.LOG_DEBUG, "Record k: " + result);
-
                         if(n == 0) {
                             if (k == 0) {
+                                materialIndex = M3D_UNDEF;
                                 String name = ReadString(fileData, model.header.SI_T.size);
                                 if (!name.isEmpty()) {
                                     for (int i = 0; i < model.materials.size(); i++) {
@@ -560,6 +611,7 @@ public class M3DJ {
                             else {
                                 String name = ReadString(fileData, model.header.SI_T.size);
                                 if (VERTEX_MAX) {
+                                    parameterIndex = M3D_UNDEF;
                                     if (!name.isEmpty()) {
                                         for (int i = 0; i < model.parameters.size(); i++) {
                                             if (name.equals(model.parameters.get(i).name)) {
@@ -593,82 +645,22 @@ public class M3DJ {
 
                         int j;
                         for (j = 0; fileData.position() < chunkEnd && j < n; j++) {
-                            switch (model.header.VI_T) {
-                                case UINT8 -> {
-                                    face.vertices[j] = fileData.get();
-                                }
-                                case UINT16 -> {
-                                    face.vertices[j] = fileData.getShort();
-                                }
-                                case UINT32 -> {
-                                    face.vertices[j] = fileData.getInt();
-                                }
-                                case UNDEFINED -> {
-                                }
-                            }
+                            face.vertices[j] = GetIndex(fileData, model.header.VI_T.size);
 
                             if((k & 1) != 0) {
-                                switch (model.header.TI_T) {
-                                    case UINT8 -> {
-                                        face.texCoords[j] = fileData.get();
-                                    }
-                                    case UINT16 -> {
-                                        face.texCoords[j] = fileData.getShort();
-                                    }
-                                    case UINT32 -> {
-                                        face.texCoords[j] = fileData.getInt();
-                                    }
-                                    case UNDEFINED -> {
-                                    }
-                                }
+                                face.texCoords[j] = GetIndex(fileData, model.header.TI_T.size);
                             }
 
                             if((k & 2) != 0) {
-                                switch (model.header.VI_T) {
-                                    case UINT8 -> {
-                                        face.normals[j] = fileData.get();
-                                    }
-                                    case UINT16 -> {
-                                        face.normals[j] = fileData.getShort();
-                                    }
-                                    case UINT32 -> {
-                                        face.normals[j] = fileData.getInt();
-                                    }
-                                    case UNDEFINED -> {
-                                    }
-                                }
+                                face.normals[j] = GetIndex(fileData, model.header.VI_T.size);
                             }
 
                             if ((k & 4) != 0) {
                                 if(VERTEX_MAX) {
-                                    switch (model.header.VI_T) {
-                                        case UINT8 -> {
-                                            face.vertMax[j] = fileData.get();
-                                        }
-                                        case UINT16 -> {
-                                            face.vertMax[j] = fileData.getShort();
-                                        }
-                                        case UINT32 -> {
-                                            face.vertMax[j] = fileData.getInt();
-                                        }
-                                        case UNDEFINED -> {
-                                        }
-                                    }
+                                    face.vertMax[j] = GetIndex(fileData, model.header.VI_T.size);
                                 }
                                 else {
-                                    switch (model.header.VI_T) {
-                                        case UINT8 -> {
-                                            fileData.get();
-                                        }
-                                        case UINT16 -> {
-                                            fileData.getShort();
-                                        }
-                                        case UINT32 -> {
-                                            fileData.getInt();
-                                        }
-                                        case UNDEFINED -> {
-                                        }
-                                    }
+                                    fileData.position(fileData.position() + model.header.VI_T.size);
                                 }
                             }
                         }
@@ -767,6 +759,7 @@ public class M3DJ {
 
                 case "OMD3":
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected end position: " + fileData.capacity());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "End of file reached.");
                     return model;
 
@@ -779,8 +772,17 @@ public class M3DJ {
             logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
         }
 
-        // Model is only valid if endChunkPosition chunk exists.
+        // Model is only valid if end chunk exists.
         return null;
+    }
+
+    private static int GetIndex(ByteBuffer fileData, int indexSize) {
+        return switch (indexSize) {
+            case 1 -> fileData.get();
+            case 2 -> fileData.getShort();
+            case 4 -> fileData.getInt();
+            default -> 0;
+        };
     }
 
     private static String ReadString(ByteBuffer fileData, int stringOffset) {
