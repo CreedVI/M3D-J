@@ -17,9 +17,9 @@ import static com.creedvi.utils.m3dj.model.chunks.M3DJ_Property.*;
 public class M3DJ {
 
     public static final int M3D_UNDEF = -1;
+    public static final int M3D_NUMBONE = 4;
 
     private static final int MAGIC_LENGTH = 4;
-    public static final int M3D_NUMBONE = 4;
     private static final int M3D_BONEMAXLEVEL = 64;
 
     private static boolean DEBUG = false;
@@ -33,14 +33,30 @@ public class M3DJ {
 
     private static Tracelog logger;
 
+    /**
+     * Enables or disables debug logging based on boolean passed.
+     * Default is disabled.
+     * @param b true enables debug output; false disables debug output.
+     */
     public static void __SetDebug(boolean b) {
         DEBUG = b;
     }
 
+    /**
+     * Set to configure the parser to evaluate vertex maximums.
+     * Default is disabled.
+     * @param b true enables maximum parsing; false disables maximum parsing.
+     */
     public static void __SetVertexMax(boolean b) {
         VERTEX_MAX = b;
     }
 
+    /**
+     * Loads a 3D model from an M3D format file (.m3d, .a3d).
+     * @param fileName String path to the file location.
+     * @return M3DJ object of the model specified by the given file.
+     * @throws IOException if the file fails to load into memory.
+     */
     public static M3DJ_Model M3DJ_Load(String fileName) throws IOException {
         M3DJ_Model result = new M3DJ_Model();
         if (DEBUG) {
@@ -69,6 +85,7 @@ public class M3DJ {
             else if (magic.toString().equals("3dmo")) {
                 fileSize = fileData.getInt();
                 logger.out(Tracelog.LogType.LOG_INFO, "ASCII magic found. File size: " + fileSize + "B");
+                logger.out(Tracelog.LogType.LOG_WARNING, "ASCII parsing is not supported at this time! Object returned will be null...");
                 result = M3DJ_LoadAscii(fileData);
             }
             else {
@@ -87,7 +104,7 @@ public class M3DJ {
             //todo:
         }
 
-        return result;
+        return null;
     }
 
     private static M3DJ_Model M3DJ_LoadBinary(ByteBuffer fileData) {
@@ -137,19 +154,19 @@ public class M3DJ {
             logger.out(Tracelog.LogType.LOG_DEBUG, "Scaling factor: " + model.header.scale);
 
             int bitField = fileData.getInt();
-            model.header.VC_T = VariableTypes.GetVertexCoordTypeByBytePattern((byte) (1 << ((bitField >> 0) & 3)));
-            model.header.VI_T = VariableTypes.GetVariableTypeByBytePattern((byte) (1 << ((bitField >> 2) & 3)));
-            model.header.SI_T = VariableTypes.GetVariableTypeByBytePattern((byte) (1 << ((bitField >> 4) & 3)));
-            model.header.CI_T = VariableTypes.GetVariableTypeByBytePattern((byte) (1 << ((bitField >> 6) & 3)));
-            model.header.TI_T = VariableTypes.GetVariableTypeByBytePattern((byte) (1 << ((bitField >> 8) & 3)));
-            model.header.BI_T = VariableTypes.GetVariableTypeByBytePattern((byte) (1 << ((bitField >> 10) & 3)));
-            model.header.NB_T = VariableTypes.GetBonesPerVertexByBytePattern((byte) (1 << ((bitField >> 12) & 3)));
-            model.header.SK_T = VariableTypes.GetVariableTypeByBytePattern((byte) (1 << ((bitField >> 14) & 3)));
-            model.header.FC_T = VariableTypes.GetVariableTypeByBytePattern((byte) (1 << ((bitField >> 16) & 3)));
-            model.header.HI_T = VariableTypes.GetVariableTypeByBytePattern((byte) (1 << ((bitField >> 18) & 3)));
-            model.header.FI_T = VariableTypes.GetVariableTypeByBytePattern((byte) (1 << ((bitField >> 20) & 3)));
-            model.header.VD_T = VariableTypes.GetVariableTypeByBytePattern((byte) (1 << ((bitField >> 22) & 3)));
-            model.header.VP_T = VariableTypes.GetVariableTypeByBytePattern((byte) (1 << ((bitField >> 24) & 3)));
+            model.header.VC_T = VariableTypes.GetVertexCoordTypeByBytePattern( (1 << ((bitField >> 0) & 3)));
+            model.header.VI_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 2) & 3)));
+            model.header.SI_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 4) & 3)));
+            model.header.CI_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 6) & 3)));
+            model.header.TI_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 8) & 3)));
+            model.header.BI_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 10) & 3)));
+            model.header.NB_T = VariableTypes.GetBonesPerVertexByBytePattern( (1 << ((bitField >> 12) & 3)));
+            model.header.SK_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 14) & 3)));
+            model.header.FC_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 16) & 3)));
+            model.header.HI_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 18) & 3)));
+            model.header.FI_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 20) & 3)));
+            model.header.VD_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 22) & 3)));
+            model.header.VP_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 24) & 3)));
 
             if(model.header.CI_T == null) {
                 model.header.CI_T = UNDEFINED;
@@ -592,6 +609,10 @@ public class M3DJ {
                         byte n = (byte) (recordMagic >> 4);
                         byte k = (byte) (recordMagic & 15);
 
+                        logger.out(Tracelog.LogType.LOG_DEBUG, "Record magic: " + recordMagic);
+                        logger.out(Tracelog.LogType.LOG_DEBUG, "n magic: " + n);
+                        logger.out(Tracelog.LogType.LOG_DEBUG, "k magic: " + k);
+
                         if(n == 0) {
                             if (k == 0) {
                                 materialIndex = M3D_UNDEF;
@@ -639,9 +660,7 @@ public class M3DJ {
 
                         M3DJ_Face face = new M3DJ_Face();
                         face.materialId = materialIndex;
-                        if (VERTEX_MAX) {
-                            face.paramId = parameterIndex;
-                        }
+                        face.paramId = parameterIndex;
 
                         int j;
                         for (j = 0; fileData.position() < chunkEnd && j < n; j++) {

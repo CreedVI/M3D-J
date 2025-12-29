@@ -21,7 +21,7 @@ public class VariableTypes {
         }
     }
 
-    public static VertexCoordType GetVertexCoordTypeByBytePattern(byte bytePattern) {
+    public static VertexCoordType GetVertexCoordTypeByBytePattern(int bytePattern) {
         if (bytePattern == INT8.bytePattern) {
             return INT8;
         }
@@ -54,7 +54,7 @@ public class VariableTypes {
         }
     }
 
-    public static VariableType GetVariableTypeByBytePattern(byte bytePattern) {
+    public static VariableType GetVariableTypeByBytePattern(int bytePattern) {
         if (bytePattern == UINT8.bytePattern) {
             return UINT8;
         }
@@ -87,7 +87,7 @@ public class VariableTypes {
         }
     }
 
-    public static BonesPerVertex GetBonesPerVertexByBytePattern(byte bytePattern) {
+    public static BonesPerVertex GetBonesPerVertexByBytePattern(int bytePattern) {
         if (bytePattern == ONE.bytePattern) {
             return ONE;
         }

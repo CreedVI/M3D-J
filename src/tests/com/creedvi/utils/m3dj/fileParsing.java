@@ -23,7 +23,7 @@ public class fileParsing {
             System.out.println("M3D-J :: TEST :: Model file (" + filePath + ") failed to load.\nExiting...");
             System.exit(-1);
         }
-        System.out.println("M3D-J :: TEST :: Model file (" + filePath + ") loaded successfully.\nContinuing...");
+        System.out.println("M3D-J :: TEST :: Model file (" + filePath + ") loaded successfully.");
     }
 
 }
