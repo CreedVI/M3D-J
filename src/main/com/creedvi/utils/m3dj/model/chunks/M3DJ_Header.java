@@ -33,6 +33,7 @@ public class M3DJ_Header {
         this.author = "";
         this.licence = "";
         this.description = "";
+        this.stringTable = new ArrayList<>();
     }
 
     public void DumpBitField(Tracelog logger) {

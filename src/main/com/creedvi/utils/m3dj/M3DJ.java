@@ -19,35 +19,45 @@ public class M3DJ {
     public static final int M3D_UNDEF = -1;
     public static final int M3D_NUMBONE = 4;
 
-    private static final int MAGIC_LENGTH = 4;
-    private static final int M3D_BONEMAXLEVEL = 64;
+    private final int MAGIC_LENGTH = 4;
+    private final int M3D_BONEMAXLEVEL = 64;
 
-    private static boolean DEBUG = false;
-    private static boolean VERTEX_MAX = false;
-    private static boolean CMAP_Loaded = false;
-    private static boolean TMAP_Loaded = false;
-    private static boolean VRTS_Loaded = false;
-    private static boolean BONE_Loaded = false;
-    private static boolean VOXT_Loaded = false;
+    private boolean DEBUG = false;
+    private boolean VERTEX_MAX = false;
+    private boolean CMAP_Loaded = false;
+    private boolean TMAP_Loaded = false;
+    private boolean VRTS_Loaded = false;
+    private boolean BONE_Loaded = false;
+    private boolean VOXT_Loaded = false;
 
 
-    private static Tracelog logger;
+    private Tracelog logger;
 
     /**
-     * Enables or disables debug logging based on boolean passed.
-     * Default is disabled.
-     * @param b true enables debug output; false disables debug output.
+     * Create new M3DJ Parser using the default log verbosity.
      */
-    public static void __SetDebug(boolean b) {
-        DEBUG = b;
+    public M3DJ() {
+        this.logger = new Tracelog(Tracelog.LogLevel.LEVEL_ERROR);
     }
+
+    /**
+     * Create new M3DJ Parser specifying the desired log verbosity.
+     * Tracelog.LogLevel provides static values for verbosity.
+     * They are, from least to most verbose, LEVEL_INFO, LEVEL_WARNING, LEVEL_ERROR, LEVEL_DEBUG.
+     * Each level will produce all entries up to its value.
+     * @param verbosity Logging level to be output
+     */
+    public M3DJ(int verbosity) {
+        this.logger = new Tracelog(verbosity);
+    }
+
 
     /**
      * Set to configure the parser to evaluate vertex maximums.
      * Default is disabled.
      * @param b true enables maximum parsing; false disables maximum parsing.
      */
-    public static void __SetVertexMax(boolean b) {
+    public void EnableVertexMax(boolean b) {
         VERTEX_MAX = b;
     }
 
@@ -57,18 +67,18 @@ public class M3DJ {
      * @return M3DJ object of the model specified by the given file.
      * @throws IOException if the file fails to load into memory.
      */
-    public static M3DJ_Model M3DJ_Load(String fileName) throws IOException {
+    public M3DJ_Model LoadFile(String fileName) throws IOException {
         M3DJ_Model result = new M3DJ_Model();
-        if (DEBUG) {
-            logger = new Tracelog(Tracelog.LogLevel.LEVEL_DEBUG);
-        }
-        else {
-            logger = new Tracelog(Tracelog.LogLevel.LEVEL_ERROR);
-        }
         int fileSize;
 
+        CMAP_Loaded = false;
+        TMAP_Loaded = false;
+        VRTS_Loaded = false;
+        BONE_Loaded = false;
+        VOXT_Loaded = false;
+
         if (fileName.substring(fileName.lastIndexOf(".")).equalsIgnoreCase(".m3d") ||
-            fileName.substring(fileName.lastIndexOf(".")).equals(".a3d")) {
+            fileName.substring(fileName.lastIndexOf(".")).equalsIgnoreCase(".a3d")) {
             ByteBuffer fileData = ByteBuffer.wrap(IO.LoadFileData(fileName));
             fileData.order(ByteOrder.LITTLE_ENDIAN);
 
@@ -97,7 +107,7 @@ public class M3DJ {
         return result;
     }
 
-    private static M3DJ_Model M3DJ_LoadAscii(ByteBuffer fileData) {
+    private M3DJ_Model M3DJ_LoadAscii(ByteBuffer fileData) {
         M3DJ_Model result = new M3DJ_Model();
 
         while (fileData.hasRemaining()) {
@@ -107,7 +117,7 @@ public class M3DJ {
         return null;
     }
 
-    private static M3DJ_Model M3DJ_LoadBinary(ByteBuffer fileData) {
+    private M3DJ_Model M3DJ_LoadBinary(ByteBuffer fileData) {
         M3DJ_Model model = new M3DJ_Model();
         int chunkSize;
 
@@ -154,19 +164,19 @@ public class M3DJ {
             logger.out(Tracelog.LogType.LOG_DEBUG, "Scaling factor: " + model.header.scale);
 
             int bitField = fileData.getInt();
-            model.header.VC_T = VariableTypes.GetVertexCoordTypeByBytePattern( (1 << ((bitField >> 0) & 3)));
-            model.header.VI_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 2) & 3)));
-            model.header.SI_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 4) & 3)));
-            model.header.CI_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 6) & 3)));
-            model.header.TI_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 8) & 3)));
-            model.header.BI_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 10) & 3)));
-            model.header.NB_T = VariableTypes.GetBonesPerVertexByBytePattern( (1 << ((bitField >> 12) & 3)));
-            model.header.SK_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 14) & 3)));
-            model.header.FC_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 16) & 3)));
-            model.header.HI_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 18) & 3)));
-            model.header.FI_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 20) & 3)));
-            model.header.VD_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 22) & 3)));
-            model.header.VP_T = VariableTypes.GetVariableTypeByBytePattern( (1 << ((bitField >> 24) & 3)));
+            model.header.VC_T = VariableTypes.GetVertexCoordTypeByBytePattern(((bitField >> 0) & 3));
+            model.header.VI_T = VariableTypes.GetVariableTypeByBytePattern(((bitField >> 2) & 3));
+            model.header.SI_T = VariableTypes.GetVariableTypeByBytePattern(((bitField >> 4) & 3));
+            model.header.CI_T = VariableTypes.GetVariableTypeByBytePattern(((bitField >> 6) & 3));
+            model.header.TI_T = VariableTypes.GetVariableTypeByBytePattern(((bitField >> 8) & 3));
+            model.header.BI_T = VariableTypes.GetVariableTypeByBytePattern(((bitField >> 10) & 3));
+            model.header.NB_T = VariableTypes.GetBonesPerVertexByBytePattern(((bitField >> 12) & 3));
+            model.header.SK_T = VariableTypes.GetVariableTypeByBytePattern(((bitField >> 14) & 3));
+            model.header.FC_T = VariableTypes.GetVariableTypeByBytePattern(((bitField >> 16) & 3));
+            model.header.HI_T = VariableTypes.GetVariableTypeByBytePattern(((bitField >> 18) & 3));
+            model.header.FI_T = VariableTypes.GetVariableTypeByBytePattern(((bitField >> 20) & 3));
+            model.header.VD_T = VariableTypes.GetVariableTypeByBytePattern(((bitField >> 22) & 3));
+            model.header.VP_T = VariableTypes.GetVariableTypeByBytePattern(((bitField >> 24) & 3));
 
             if(model.header.CI_T == null) {
                 model.header.CI_T = UNDEFINED;
@@ -192,24 +202,15 @@ public class M3DJ {
 
             model.header.DumpBitField(logger);
 
-            String table = "";
             while (fileData.position() < chunkSize) {
-                table += (char) fileData.get();
+                model.header.stringTable.add(ReadString(fileData, 0));
             }
 
-            String[] records = table.split("\0");
+            model.header.title = model.header.stringTable.get(0);
+            model.header.licence = model.header.stringTable.get(1);
+            model.header.author = model.header.stringTable.get(2);
+            model.header.description = model.header.stringTable.get(3);
 
-            model.header.title = records[0];
-            model.header.licence = records[1];
-            model.header.author = records[2];
-
-            if (records.length > 3) {
-                model.header.description = records[3];
-                model.header.stringTable.addAll(Arrays.asList(records).subList(3, records.length));
-            }
-            else {
-                model.header.description = "";
-            }
 
             logger.out(Tracelog.LogType.LOG_INFO,
            "Model metadata:\n" +
@@ -248,10 +249,20 @@ public class M3DJ {
 
         }
 
+        int chunkEnd = 0;
+
         while (fileData.hasRemaining()) {
             magic = new StringBuilder();
             for (int i = 0; i < MAGIC_LENGTH; i++) {
                 magic.append((char) (fileData.get()));
+            }
+
+            // OMD3 indicated the end of the file and does not have a size component.
+            if (!magic.toString().equals("OMD3")) {
+                // Chunk size includes the length of Magic and Integer value, so we have to account that
+                // we've already processed those bytes by subtracting them from the chunk size.
+                chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+                chunkEnd = fileData.position() + chunkSize;
             }
 
             logger.out(Tracelog.LogType.LOG_DEBUG, "===");
@@ -269,18 +280,15 @@ public class M3DJ {
                     }
                     CMAP_Loaded = true;
 
-                    // Chunk size includes the length of Magic and Integer value, so we have to account that
-                    // we've already processed those bytes by subtracting them from the chunk size.
-                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
-                    int colorSize = 4;
+                    int colorSize = model.header.CI_T.size;
                     int numColors = chunkSize / colorSize;
 
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected Number of Colours: " + numColors);
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Colour unit size: " + colorSize + " bytes");
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + (fileData.position() + chunkSize));
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
-                    for (int i = 0; i < chunkSize; i++) {
+                    while (fileData.position() < chunkEnd) {
                         M3DJ_Color color = new M3DJ_Color();
                         color.a = fileData.get();
                         color.b = fileData.get();
@@ -305,9 +313,6 @@ public class M3DJ {
                     }
                     TMAP_Loaded = true;
 
-                    // Chunk size includes the length of Magic and Integer value, so we have to account that
-                    // we've already processed those bytes by subtracting them from the chunk size.
-                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
                     int texCoordSize = (model.header.VC_T.size * 2);
                     int numTexCoords = (chunkSize/texCoordSize);
 
@@ -315,7 +320,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected Number of Texture Coordinates: " + numTexCoords);
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Texture coordinate size: " + texCoordSize + " bytes");
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + (fileData.position() + chunkSize));
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
                     for (int i = 0; i < numTexCoords; i++) {
                         switch (model.header.VC_T) {
@@ -355,9 +360,6 @@ public class M3DJ {
                     }
                     VRTS_Loaded = true;
 
-                    // Chunk size includes the length of Magic and Integer value, so we have to account that
-                    // we've already processed those bytes by subtracting them from the chunk size.
-                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
                     int vertexSize = (model.header.VC_T.size * 4) + model.header.CI_T.size + model.header.SK_T.size;
                     int numVertices = chunkSize / vertexSize;
 
@@ -365,7 +367,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected Number of Texture Coordinates: " + numVertices);
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Texture coordinate size: " + vertexSize + " bytes");
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + (fileData.position() + chunkSize));
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
                     for (int i = 0; i < numVertices; i++) {
                         M3DJ_Vertex vertex = new M3DJ_Vertex();
@@ -420,10 +422,10 @@ public class M3DJ {
                                 vertex.colorIndex = fileData.getInt();
                             }
                             case UNDEFINED -> {
-                                vertex.colorIndex = -1;
+                                vertex.colorIndex = 0;
                             }
                         }
-                        vertex.skinIndex = M3D_UNDEF;
+                        vertex.skinIndex = GetIndex(fileData, model.header.SK_T.size);
 
                         model.vertices.add(vertex);
                     }
@@ -443,10 +445,6 @@ public class M3DJ {
                         break;
                     }
                     BONE_Loaded = true;
-                    
-                    // Chunk size includes the length of Magic and Integer value, so we have to account that
-                    // we've already processed those bytes by subtracting them from the chunk size.
-                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
 
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
@@ -458,29 +456,12 @@ public class M3DJ {
                     break;
 
                 case "MTRL":
-                    // Chunk size includes the length of Magic and Integer value, so we have to account that
-                    // we've already processed those bytes by subtracting them from the chunk size.
-                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
                     M3DJ_Material material = new M3DJ_Material();
-
-                    switch (model.header.SI_T) {
-                        case UINT8 -> {
-                            byte stringIndex = fileData.get();
-                            material.name = model.header.stringTable.get(stringIndex);
-                        }
-                        case UINT16 -> {
-                            short stringIndex = fileData.getShort();
-                            material.name = model.header.stringTable.get(stringIndex);
-                        }
-                        case UINT32 -> {
-                            int stringIndex = fileData.getInt();
-                            material.name = model.header.stringTable.get(stringIndex);
-                        }
-                        case UNDEFINED -> {
-                            material.name = "How did you manage this.";
-                        }
-                    }
+                    material.name = ReadString(fileData, 0);
 
                     for (M3DJ_Material mat: model.materials) {
                         if (mat.name.equals(material.name)) {
@@ -489,23 +470,19 @@ public class M3DJ {
                         }
                     }
 
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
-
-                    for (int i = model.header.SI_T.size; i < chunkSize - model.header.SI_T.size; i++) {
+                    while (fileData.position() < chunkEnd) {
                         // todo: load materials
                         M3DJ_Property property = new M3DJ_Property();
 
                         int propValue = Byte.toUnsignedInt(fileData.get());
-                        fileData.get();
 
                         if (propValue >= 128) {
                             property.format = PropertyFormat.MAP;
                         }
                         else {
-                            for (int k = 256, j = 0; j < propertyTypes.length; j++) {
-                                if (k == propertyTypes[i].id) {
-                                    property.format = propertyTypes[i].format;
+                            for (int j = 0; j < propertyTypes.length; j++) {
+                                if (propValue == propertyTypes[j].id) {
+                                    property.format = propertyTypes[j].format;
                                     break;
                                 }
                             }
@@ -516,7 +493,7 @@ public class M3DJ {
                                 switch (model.header.CI_T) {
                                     case UINT8:
                                         if (!model.colors.isEmpty()) {
-                                            property.SetPropertyValue(fileData.get());
+                                            property.SetPropertyValue((int) fileData.get());
                                         }
                                         else {
                                             property.SetPropertyValue(0);
@@ -573,10 +550,6 @@ public class M3DJ {
                     break;
 
                 case "PROC":
-                    // Chunk size includes the length of Magic and Integer value, so we have to account that
-                    // we've already processed those bytes by subtracting them from the chunk size.
-                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
-
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
@@ -591,10 +564,6 @@ public class M3DJ {
                         logger.out(Tracelog.LogType.LOG_ERROR, "No vertex data loaded prior to mesh data.");
                     }
 
-                    // Chunk size includes the length of Magic and Integer value, so we have to account that
-                    // we've already processed those bytes by subtracting them from the chunk size.
-                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
-
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + (fileData.position() + chunkSize));
@@ -602,10 +571,9 @@ public class M3DJ {
                     int materialIndex = M3D_UNDEF;
                     int parameterIndex = M3D_UNDEF;
 
-                    for (int chunkEnd = fileData.position() + chunkSize; fileData.position() < chunkEnd; ) {
+                    for (; fileData.position() < chunkEnd; ) {
 
                         byte recordMagic = fileData.get();
-                        fileData.get();
                         byte n = (byte) (recordMagic >> 4);
                         byte k = (byte) (recordMagic & 15);
 
@@ -615,7 +583,6 @@ public class M3DJ {
 
                         if(n == 0) {
                             if (k == 0) {
-                                materialIndex = M3D_UNDEF;
                                 String name = ReadString(fileData, model.header.SI_T.size);
                                 if (!name.isEmpty()) {
                                     for (int i = 0; i < model.materials.size(); i++) {
@@ -632,7 +599,6 @@ public class M3DJ {
                             else {
                                 String name = ReadString(fileData, model.header.SI_T.size);
                                 if (VERTEX_MAX) {
-                                    parameterIndex = M3D_UNDEF;
                                     if (!name.isEmpty()) {
                                         for (int i = 0; i < model.parameters.size(); i++) {
                                             if (name.equals(model.parameters.get(i).name)) {
@@ -692,10 +658,6 @@ public class M3DJ {
                     break;
 
                 case "SHPE":
-                    // Chunk size includes the length of Magic and Integer value, so we have to account that
-                    // we've already processed those bytes by subtracting them from the chunk size.
-                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
-
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
@@ -707,9 +669,6 @@ public class M3DJ {
 
                 case "VOXT":
                     VOXT_Loaded = true;
-                    // Chunk size includes the length of Magic and Integer value, so we have to account that
-                    // we've already processed those bytes by subtracting them from the chunk size.
-                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
 
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
@@ -721,10 +680,6 @@ public class M3DJ {
                     break;
 
                 case "VOXD":
-                    // Chunk size includes the length of Magic and Integer value, so we have to account that
-                    // we've already processed those bytes by subtracting them from the chunk size.
-                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
-
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
@@ -735,10 +690,6 @@ public class M3DJ {
                     break;
 
                 case "LBLS":
-                    // Chunk size includes the length of Magic and Integer value, so we have to account that
-                    // we've already processed those bytes by subtracting them from the chunk size.
-                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
-
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
@@ -749,10 +700,6 @@ public class M3DJ {
                     break;
 
                 case "ACTN":
-                    // Chunk size includes the length of Magic and Integer value, so we have to account that
-                    // we've already processed those bytes by subtracting them from the chunk size.
-                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
-
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
@@ -763,10 +710,6 @@ public class M3DJ {
                     break;
 
                 case "ASET":
-                    // Chunk size includes the length of Magic and Integer value, so we have to account that
-                    // we've already processed those bytes by subtracting them from the chunk size.
-                    chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
-
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
@@ -795,7 +738,7 @@ public class M3DJ {
         return null;
     }
 
-    private static int GetIndex(ByteBuffer fileData, int indexSize) {
+    private int GetIndex(ByteBuffer fileData, int indexSize) {
         return switch (indexSize) {
             case 1 -> fileData.get();
             case 2 -> fileData.getShort();
@@ -804,7 +747,7 @@ public class M3DJ {
         };
     }
 
-    private static String ReadString(ByteBuffer fileData, int stringOffset) {
+    private String ReadString(ByteBuffer fileData, int stringOffset) {
         String result = "";
         char c;
 
@@ -822,7 +765,7 @@ public class M3DJ {
         return result;
     }
 
-    private static ByteBuffer DecompressDataBuffer(ByteBuffer compressedData) {
+    private ByteBuffer DecompressDataBuffer(ByteBuffer compressedData) {
         Inflater inflater = new Inflater();
         inflater.setInput(compressedData);
 

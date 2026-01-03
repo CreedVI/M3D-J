@@ -42,11 +42,11 @@ public class M3DJ_Property {
         };
     }
 
-    public void SetPropertyValue(Object value) {
+    public void SetPropertyValue(float value) {
         switch (this.format) {
             case COLOR -> this.color = (int) value;
             case UINT8, UINT16, UINT32 -> this.value = (int) value;
-            case FLOAT -> this.floatingValue = (float) value;
+            case FLOAT -> this.floatingValue = value;
             case MAP -> this.textureId = (int) value;
         }
     }

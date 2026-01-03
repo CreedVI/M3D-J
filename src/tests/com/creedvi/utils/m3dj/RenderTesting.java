@@ -1,5 +1,6 @@
 package com.creedvi.utils.m3dj;
 
+import com.creedvi.utils.m3dj.io.Tracelog;
 import com.creedvi.utils.m3dj.model.M3DJ_Model;
 import com.creedvi.utils.m3dj.model.chunks.M3DJ_Property;
 import com.raylib.java.Raylib;
@@ -12,6 +13,7 @@ import java.io.IOException;
 import static com.creedvi.utils.m3dj.M3DJ.M3D_UNDEF;
 import static com.raylib.java.core.Color.*;
 import static com.raylib.java.core.input.Mouse.MouseButton.MOUSE_BUTTON_LEFT;
+import static com.raylib.java.core.rcamera.Camera3D.CameraMode.CAMERA_FREE;
 import static com.raylib.java.core.rcamera.Camera3D.CameraProjection.CAMERA_PERSPECTIVE;
 import static com.raylib.java.utils.Tracelog.Tracelog;
 import static com.raylib.java.utils.Tracelog.TracelogType.LOG_INFO;
@@ -19,6 +21,21 @@ import static com.raylib.java.utils.Tracelog.TracelogType.LOG_INFO;
 public class RenderTesting {
 
     static Raylib rlj;
+
+    public final static int
+            MATERIAL_MAP_ALBEDO    = 0,     // Albedo material (same as: MATERIAL_MAP_DIFFUSE)
+            MATERIAL_MAP_METALNESS = 1,     // Metalness material (same as: MATERIAL_MAP_SPECULAR)
+            MATERIAL_MAP_NORMAL    = 2,     // Normal material
+            MATERIAL_MAP_ROUGHNESS = 3,     // Roughness material
+            MATERIAL_MAP_OCCLUSION = 4,     // Ambient occlusion material
+            MATERIAL_MAP_EMISSION  = 5,     // Emission material
+            MATERIAL_MAP_HEIGHT    = 6,     // Heightmap material
+            MATERIAL_MAP_CUBEMAP   = 7,     // Cubemap material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
+            MATERIAL_MAP_IRRADIANCE= 8,     // Irradiance material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
+            MATERIAL_MAP_PREFILTER = 9,     // Prefilter material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
+            MATERIAL_MAP_BRDF      = 10;    // Brdf material
+    public final static int MATERIAL_MAP_DIFFUSE = 0;
+    public final static int MATERIAL_MAP_SPECULAR = 1;
 
     public static void main(String[] args) {
         // Initialization
@@ -36,10 +53,11 @@ public class RenderTesting {
         camera.fovy = 45.0f;                                         // Camera field-of-view Y
         camera.projection = CAMERA_PERSPECTIVE;                      // Camera mode type
 
+        M3DJ parser = new M3DJ(Tracelog.LogLevel.LEVEL_DEBUG);
         M3DJ_Model m3dj;
 
         try {
-             m3dj = M3DJ.M3DJ_Load("assets/suzanne.m3d");
+             m3dj = parser.LoadFile("assets/suzanne.m3d");
         }
         catch (IOException e) {
             throw new RuntimeException(e);
@@ -54,7 +72,7 @@ public class RenderTesting {
         // NOTE: bounds are calculated from the original size of the model,
         // if model is scaled on drawing, bounds must be also scaled
 
-        //camera.SetCameraMode(CAMERA_FREE);     // Set a free camera mode
+        camera.SetCameraMode(CAMERA_FREE);     // Set a free camera mode
 
         boolean selected = false;          // Selected object flag
 
@@ -110,8 +128,7 @@ public class RenderTesting {
 
     private static Model ConvertToRaylib(M3DJ_Model m3dj) {
         Model model = new Model();
-        int i, j, k, l, n, mi = -2, vcolor = 0;
-        M3DJ_Property property; 
+        int i, j, k, l, n, mi = -2, vcolor;
 
         // no faces? this is probably just a material library
         if (m3dj.faces.isEmpty()) {
@@ -174,9 +191,9 @@ public class RenderTesting {
                 // if all colors are fully transparent black for all vertices of this material, then we assume no vertices colors
                 for (j = i, l = vcolor = 0; (j < m3dj.faces.size()) && (mi == m3dj.faces.get(j).materialId); j++, l++) {
                     if (
-                            m3dj.vertices.get(m3dj.faces.get(j).vertices[0]).colorIndex == -1 ||
-                            m3dj.vertices.get(m3dj.faces.get(j).vertices[1]).colorIndex == -1 ||
-                            m3dj.vertices.get(m3dj.faces.get(j).vertices[2]).colorIndex == -1
+                            m3dj.vertices.get(m3dj.faces.get(j).vertices[0]).colorIndex != 0 ||
+                            m3dj.vertices.get(m3dj.faces.get(j).vertices[1]).colorIndex != 0 ||
+                            m3dj.vertices.get(m3dj.faces.get(j).vertices[2]).colorIndex != 0
                     ) {
                         vcolor = 1;
                     }
@@ -232,16 +249,16 @@ public class RenderTesting {
                     model.meshes[k].colors[l * 12 + 3] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).colorIndex).a;
                 }
                 if ((m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex & 0xff000000) != 0) {
-                    model.meshes[k].colors[l * 12 + 0] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex).r;
-                    model.meshes[k].colors[l * 12 + 1] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex).g;
-                    model.meshes[k].colors[l * 12 + 2] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex).b;
-                    model.meshes[k].colors[l * 12 + 3] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex).a;
+                    model.meshes[k].colors[l * 12 + 4] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex).r;
+                    model.meshes[k].colors[l * 12 + 5] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex).g;
+                    model.meshes[k].colors[l * 12 + 6] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex).b;
+                    model.meshes[k].colors[l * 12 + 7] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex).a;
                 }
                 if ((m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).colorIndex & 0xff000000) != 0) {
-                    model.meshes[k].colors[l * 12 + 0] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).colorIndex).r;
-                    model.meshes[k].colors[l * 12 + 1] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).colorIndex).g;
-                    model.meshes[k].colors[l * 12 + 2] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).colorIndex).b;
-                    model.meshes[k].colors[l * 12 + 3] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).colorIndex).a;
+                    model.meshes[k].colors[l * 12 + 8] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).colorIndex).r;
+                    model.meshes[k].colors[l * 12 + 9] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).colorIndex).g;
+                    model.meshes[k].colors[l * 12 + 10] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).colorIndex).b;
+                    model.meshes[k].colors[l * 12 + 11] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).colorIndex).a;
                 }
             }
 
@@ -269,13 +286,13 @@ public class RenderTesting {
             // Add skin (vertices / bone weight pairs)
             if (!m3dj.bones.isEmpty() /*&& !m3dj.skins.isEmpty*/) {
                 for (n = 0; n < 3; n++) {
-                    int skinid = m3dj.vertices.get(m3dj.faces.get(i).vertices[n]).skinIndex;
+                    int skinId = m3dj.vertices.get(m3dj.faces.get(i).vertices[n]).skinIndex;
 
                     // Check if there is a skin for this mesh, should be, just failsafe
-                    if ((skinid != M3D_UNDEF) && (skinid < (int)m3dj.skins.size())) {
+                    if ((skinId != M3D_UNDEF) && (skinId < m3dj.skins.size())) {
                         for (j = 0; j < 4; j++) {
-                            model.meshes[k].boneIds[l*12 + n*4 + j] = (byte) m3dj.skins.get(skinid).boneIds[j];
-                            model.meshes[k].boneWeights[l*12 + n*4 + j] = m3dj.skins.get(skinid).weights[j];
+                            model.meshes[k].boneIds[l*12 + n*4 + j] = (byte) m3dj.skins.get(skinId).boneIds[j];
+                            model.meshes[k].boneWeights[l*12 + n*4 + j] = m3dj.skins.get(skinId).weights[j];
                         }
                     }
                     else {
@@ -288,76 +305,83 @@ public class RenderTesting {
             }
         }
 
-        /* TODO: not relevant for test
+        M3DJ_Property property;
+
         // Load materials
-        for (i = 0; i < (int)m3dj.materials.size(); i++) {
+        for (i = 0; i < m3dj.materials.size(); i++) {
             model.materials[i + 1] = rlj.models.LoadMaterialDefault();
 
             for (j = 0; j < m3dj.materials.get(i).properties.size(); j++) {
                 property = m3dj.materials.get(i).properties.get(j);
 
-                if (M3DJ_Property.propertyTypes.equals(m3dp_Kd)) {
-                    System.arraycopy( & model.materials[i + 1].maps[MATERIAL_MAP_DIFFUSE].color, &property.value.color, 4);
-                    model.materials[i + 1].maps[MATERIAL_MAP_DIFFUSE].value = 0.0f;
-                }
-                else if (M3DJ_Property.propertyTypes.equals(m3dp_Ks)) {
-                    System.arraycopy( & model.materials[i + 1].maps[MATERIAL_MAP_SPECULAR].color, &property.value.color, 4);
-                }
-                else if (M3DJ_Property.propertyTypes.equals(m3dp_Ns)) {
-                    model.materials[i + 1].maps[MATERIAL_MAP_SPECULAR].value = property.value.fnum;
-                }
-                else if (M3DJ_Property.propertyTypes.equals(m3dp_Ke)) {
-                    System.arraycopy( & model.materials[i + 1].maps[MATERIAL_MAP_EMISSION].color, &property.value.color, 4);
-                    model.materials[i + 1].maps[MATERIAL_MAP_EMISSION].value = 0.0f;
-                }
-                else if (M3DJ_Property.propertyTypes.equals(m3dp_Pm)) {
-                    model.materials[i + 1].maps[MATERIAL_MAP_METALNESS].value = property.value.fnum;
-                }
-                else if (M3DJ_Property.propertyTypes.equals(m3dp_Pr)) {
-                    model.materials[i + 1].maps[MATERIAL_MAP_ROUGHNESS].value = property.value.fnum;
-                }
-                else if (M3DJ_Property.propertyTypes.equals(m3dp_Ps)) {
-                    model.materials[i + 1].maps[MATERIAL_MAP_NORMAL].color = WHITE;
-                    model.materials[i + 1].maps[MATERIAL_MAP_NORMAL].value = property.value.fnum;
-                }
-                else {
-                    if (property.type >= 128) {
-                        Image image = {0};
-                        image.data = m3dj.texture[property.value.textureid].d;
-                        image.width = m3dj.texture[property.value.textureid].w;
-                        image.height = m3dj.texture[property.value.textureid].h;
-                        image.mipmaps = 1;
-                        image.format = (m3dj.texture[property.value.textureid].f == 4) ? PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 :
-                                ((m3dj.texture[property.value.textureid].f == 3) ? PIXELFORMAT_UNCOMPRESSED_R8G8B8 :
-                                        ((m3dj.texture[property.value.textureid].f == 2) ? PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA : PIXELFORMAT_UNCOMPRESSED_GRAYSCALE));
-
-                        switch (property.type) {
-                            case m3dp_map_Kd:
-                                model.materials[i + 1].maps[MATERIAL_MAP_DIFFUSE].texture = LoadTextureFromImage(image);
-                                break;
-                            case m3dp_map_Ks:
-                                model.materials[i + 1].maps[MATERIAL_MAP_SPECULAR].texture = LoadTextureFromImage(image);
-                                break;
-                            case m3dp_map_Ke:
-                                model.materials[i + 1].maps[MATERIAL_MAP_EMISSION].texture = LoadTextureFromImage(image);
-                                break;
-                            case m3dp_map_Km:
-                                model.materials[i + 1].maps[MATERIAL_MAP_NORMAL].texture = LoadTextureFromImage(image);
-                                break;
-                            case m3dp_map_Ka:
-                                model.materials[i + 1].maps[MATERIAL_MAP_OCCLUSION].texture = LoadTextureFromImage(image);
-                                break;
-                            case m3dp_map_Pm:
-                                model.materials[i + 1].maps[MATERIAL_MAP_ROUGHNESS].texture = LoadTextureFromImage(image);
-                                break;
-                            default:
-                                break;
+                for (int m = 0; m < M3DJ_Property.propertyTypes.length; m++) {
+                    switch (M3DJ_Property.propertyTypes[m].key) {
+                        case "m3dp_Kd" -> {
+                            model.materials[i + 1].maps[MATERIAL_MAP_DIFFUSE].color = rlj.textures.GetColor((int) property.GetPropertyValue());
+                            model.materials[i + 1].maps[MATERIAL_MAP_DIFFUSE].value = 0.0f;
+                        }
+                        case "m3dp_Ks" -> {
+                            model.materials[i + 1].maps[MATERIAL_MAP_SPECULAR].color = rlj.textures.GetColor((int) property.GetPropertyValue());
+                        }
+                        case "m3dp_Ns" -> {
+                            model.materials[i + 1].maps[MATERIAL_MAP_SPECULAR].value = (int) property.GetPropertyValue();
+                        }
+                        case "m3dp_Ke" -> {
+                            model.materials[i + 1].maps[MATERIAL_MAP_EMISSION].color = rlj.textures.GetColor((int) property.GetPropertyValue());
+                            model.materials[i + 1].maps[MATERIAL_MAP_EMISSION].value = 0.0f;
+                        }
+                        case "m3dp_Pm" -> {
+                            model.materials[i + 1].maps[MATERIAL_MAP_METALNESS].value = (float) property.GetPropertyValue();
+                        }
+                        case "m3dp_Pr" -> {
+                            model.materials[i + 1].maps[MATERIAL_MAP_ROUGHNESS].value = (float) property.GetPropertyValue();
+                        }
+                        case "m3dp_Ps" -> {
+                            model.materials[i + 1].maps[MATERIAL_MAP_NORMAL].color = WHITE;
+                            model.materials[i + 1].maps[MATERIAL_MAP_NORMAL].value = (float) property.GetPropertyValue();
                         }
                     }
+                    /*todo: textures
+                    else {
+                        if (property.type >= 128) {
+                            Image image = new Image();
+                            image.data = m3dj.texture[property.value.textureid].d;
+                            image.width = m3dj.texture[property.value.textureid].w;
+                            image.height = m3dj.texture[property.value.textureid].h;
+                            image.mipmaps = 1;
+                            image.format = (m3dj.texture[property.value.textureid].f == 4) ? PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 :
+                                    ((m3dj.texture[property.value.textureid].f == 3) ? PIXELFORMAT_UNCOMPRESSED_R8G8B8 :
+                                            ((m3dj.texture[property.value.textureid].f == 2) ? PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA : PIXELFORMAT_UNCOMPRESSED_GRAYSCALE));
+
+                            switch (property.type) {
+                                case m3dp_map_Kd:
+                                    model.materials[i + 1].maps[MATERIAL_MAP_DIFFUSE].texture = LoadTextureFromImage(image);
+                                    break;
+                                case m3dp_map_Ks:
+                                    model.materials[i + 1].maps[MATERIAL_MAP_SPECULAR].texture = LoadTextureFromImage(image);
+                                    break;
+                                case m3dp_map_Ke:
+                                    model.materials[i + 1].maps[MATERIAL_MAP_EMISSION].texture = LoadTextureFromImage(image);
+                                    break;
+                                case m3dp_map_Km:
+                                    model.materials[i + 1].maps[MATERIAL_MAP_NORMAL].texture = LoadTextureFromImage(image);
+                                    break;
+                                case m3dp_map_Ka:
+                                    model.materials[i + 1].maps[MATERIAL_MAP_OCCLUSION].texture = LoadTextureFromImage(image);
+                                    break;
+                                case m3dp_map_Pm:
+                                    model.materials[i + 1].maps[MATERIAL_MAP_ROUGHNESS].texture = LoadTextureFromImage(image);
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                     */
                 }
             }
         }
 
+        /* TODO: not relevant for test
         // Load bones
         if (!m3dj.bones.isEmpty()) {
             model.boneCount = m3dj.bones.size() + 1;
@@ -405,7 +429,7 @@ public class RenderTesting {
         /*
         // Load bone-pose default mesh into animation vertices. These will be updated when UpdateModelAnimation gets
         // called, but not before, however DrawMesh uses these if they exist (so not good if they are left empty)
-        if (!m3dj.bones.isEmpty() /*&& !m3dj.skins.isEmpty()*) {
+        if (!m3dj.bones.isEmpty() && !m3dj.skins.isEmpty()) {
             for (i = 0; i < model.meshCount; i++) {
                 System.arraycopy(model.meshes[i].animVertices, model.meshes[i].vertices, model.meshes[i].vertexCount*3*sizeof(float));
                 System.arraycopy(model.meshes[i].animNormals, model.meshes[i].normals, model.meshes[i].vertexCount*3*sizeof(float));
