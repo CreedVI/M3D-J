@@ -14,12 +14,12 @@ public class M3DJ_Face {
 
     public M3DJ_Face() {
         this.materialId = -1;
-        this.vertices = new int[3];
-        this.normals = new int[3];
-        this.texCoords = new int[3];
+        this.vertices = new int[]{-1, -1, -1};
+        this.normals = new int[]{-1, -1, -1};
+        this.texCoords = new int[]{-1, -1, -1};
 
         this.paramId = -1;
-        this.vertMax = new int[3];
+        this.vertMax = new int[]{-1, -1, -1};
     }
 
 }

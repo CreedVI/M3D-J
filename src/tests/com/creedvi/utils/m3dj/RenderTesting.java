@@ -1,6 +1,5 @@
 package com.creedvi.utils.m3dj;
 
-import com.creedvi.utils.m3dj.io.Tracelog;
 import com.creedvi.utils.m3dj.model.M3DJ_Model;
 import com.creedvi.utils.m3dj.model.chunks.M3DJ_Property;
 import com.raylib.java.Raylib;
@@ -53,7 +52,7 @@ public class RenderTesting {
         camera.fovy = 45.0f;                                         // Camera field-of-view Y
         camera.projection = CAMERA_PERSPECTIVE;                      // Camera mode type
 
-        M3DJ parser = new M3DJ(Tracelog.LogLevel.LEVEL_DEBUG);
+        M3DJ parser = new M3DJ();
         M3DJ_Model m3dj;
 
         try {

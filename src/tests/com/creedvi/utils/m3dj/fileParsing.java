@@ -13,16 +13,16 @@ public class fileParsing {
         M3DJ parser = new M3DJ(Tracelog.LogLevel.LEVEL_ERROR);
 
         String[] filePath = new String[] {
-                "assets/aliveai_character.m3d",
-                "assets/bezier.m3d",
-                "assets/CesiumMan.m3d",
-                "assets/cube.m3d",
-                "assets/cube_normals.m3d",
-                "assets/cube_usemtl.m3d",
-                "assets/cube_with_vertex_colors.m3d",
-                "assets/lantea.m3d",
-                "assets/mobs_dwarves_character.m3d",
-                "assets/nurbs.m3d",
+                //"assets/aliveai_character.m3d",
+                //"assets/bezier.m3d",
+                //"assets/CesiumMan.m3d",
+                //"assets/cube.m3d",
+                //"assets/cube_normals.m3d",
+                //"assets/cube_usemtl.m3d",
+                //"assets/cube_with_vertex_colors.m3d",
+                //"assets/lantea.m3d",
+                //"assets/mobs_dwarves_character.m3d",
+                //"assets/nurbs.m3d",
                 "assets/suzanne.m3d",
         };
 
@@ -42,12 +42,20 @@ public class fileParsing {
                 System.out.println("M3D-J :: TEST :: Model file (" + s + ") failed to load.\nExiting...");
                 failCount++;
                 continue;
-            } else {
+            }
+            else {
                 System.out.println("M3D-J :: TEST :: Model file (" + s + ") loaded successfully.");
+            }
+
+            try {
+                parser.DumpModel(model, "suzanne_M3DJ.dump");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         }
 
-        System.out.println("M3D-J :: TEST :: " + failCount + "models failed to load of " + filePath.length + " files provided.");
+        System.out.println("M3D-J :: TEST :: " + failCount + " model(s) failed to load of " + filePath.length + " file(s) provided.");
+
     }
 
 }
