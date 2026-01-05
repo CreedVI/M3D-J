@@ -1,20 +1,21 @@
 package com.creedvi.utils.m3dj;
 
 import com.creedvi.utils.m3dj.model.M3DJ_Model;
-import com.creedvi.utils.m3dj.model.chunks.M3DJ_Property;
 import com.raylib.java.Raylib;
 import com.raylib.java.core.rcamera.Camera3D;
 import com.raylib.java.models.*;
-import com.raylib.java.raymath.Vector3;
+import com.raylib.java.structs.*;
 
 import java.io.IOException;
 
 import static com.creedvi.utils.m3dj.M3DJ.M3D_UNDEF;
-import static com.raylib.java.core.Color.*;
+import static com.raylib.java.Config.SUPPORT_MESH_GENERATION;
+import static com.raylib.java.raymath.Raymath.MatrixIdentity;
+import static com.raylib.java.structs.Color.*;
 import static com.raylib.java.core.input.Mouse.MouseButton.MOUSE_BUTTON_LEFT;
 import static com.raylib.java.core.rcamera.Camera3D.CameraMode.CAMERA_FREE;
 import static com.raylib.java.core.rcamera.Camera3D.CameraProjection.CAMERA_PERSPECTIVE;
-import static com.raylib.java.utils.Tracelog.Tracelog;
+import static com.raylib.java.utils.Tracelog.TRACELOG;
 import static com.raylib.java.utils.Tracelog.TracelogType.LOG_INFO;
 
 public class RenderTesting {
@@ -45,7 +46,7 @@ public class RenderTesting {
         rlj = new Raylib(screenWidth, screenHeight, "raylib-j [models] example - models loading, M3D");
 
         // Define the camera to look into our 3d world
-        Camera3D camera = new Camera3D();
+        Camera3D camera = new Camera3D(rlj);
         camera.position = new Vector3(0, 8, 16); // Camera position
         camera.target = new Vector3(0.0f, 0, 0.0f);     // Camera looking at point
         camera.up = new Vector3(0.0f, 1.0f, 0.0f);          // Camera up vector (rotation towards target)
@@ -71,8 +72,6 @@ public class RenderTesting {
         // NOTE: bounds are calculated from the original size of the model,
         // if model is scaled on drawing, bounds must be also scaled
 
-        camera.SetCameraMode(CAMERA_FREE);     // Set a free camera mode
-
         boolean selected = false;          // Selected object flag
 
         rlj.core.SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
@@ -82,10 +81,10 @@ public class RenderTesting {
         while (!rlj.core.WindowShouldClose()) {   // Detect window close button or ESC key
             // Update
             //----------------------------------------------------------------------------------
-            camera.UpdateCamera();
+            camera.Update(CAMERA_FREE);
 
             // Select model on mouse click
-            if (rlj.core.IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            if (rlj.core.IsMouseButtonPressed(MOUSE_BUTTON_LEFT.ordinal())) {
                 // Check collision between ray and box
                 if (rlj.models.GetRayCollisionBox(rlj.core.GetMouseRay(rlj.core.GetMousePosition(), camera), bounds).hit) {
                     selected = !selected;
@@ -136,16 +135,39 @@ public class RenderTesting {
 
         if (!m3dj.materials.isEmpty()) {
             model.meshCount = model.materialCount = m3dj.materials.size();
-            Tracelog(LOG_INFO, "MODEL: model has " + model.materialCount + " material meshes");
+            TRACELOG(LOG_INFO, "MODEL: model has " + model.materialCount + " material meshes");
         }
         else {
             model.meshCount = 1; model.materialCount = 0;
-            Tracelog(LOG_INFO, "MODEL: No materials, putting all meshes in a default material");
+            TRACELOG(LOG_INFO, "MODEL: No materials, putting all meshes in a default material");
         }
 
         // We always need a default material, so we add +1
         model.materialCount++;
-        
+
+        // Faces must be in non-decreasing materialid order. Verify that quickly, sorting them otherwise
+        // WARNING: Sorting is not needed, valid M3D model files should already be sorted
+        // Just keeping the sorting function for reference (Check PR #3363 #3385)
+        /*
+        for (i = 1; i < m3d->numface; i++)
+        {
+            if (m3d->face[i-1].materialid <= m3d->face[i].materialid) continue;
+
+            // face[i-1] > face[i].  slide face[i] lower
+            m3df_t slider = m3d->face[i];
+            j = i-1;
+
+            do
+            {   // face[j] > slider, face[j+1] is svailable vacant gap
+                m3d->face[j+1] = m3d->face[j];
+                j = j-1;
+            }
+            while (j >= 0 && m3d->face[j].materialid > slider.materialid);
+
+            m3d->face[j+1] = slider;
+        }
+        */
+
         model.meshes = new Mesh[model.meshCount];
         for (int m = 0; m < model.meshes.length; m++) {
             model.meshes[m] = new Mesh();
@@ -229,15 +251,15 @@ public class RenderTesting {
             }
 
             // Process meshes per material, add triangles
-            model.meshes[k].vertices[l*9 + 0] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).x*m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 1] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).y*m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 2] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).z*m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 3] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).x*m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 4] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).y*m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 5] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).z*m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 6] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).x*m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 7] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).y*m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 8] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).z*m3dj.header.scale);
+            model.meshes[k].vertices[l*9 + 0] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).x * m3dj.header.scale);
+            model.meshes[k].vertices[l*9 + 1] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).y * m3dj.header.scale);
+            model.meshes[k].vertices[l*9 + 2] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).z * m3dj.header.scale);
+            model.meshes[k].vertices[l*9 + 3] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).x * m3dj.header.scale);
+            model.meshes[k].vertices[l*9 + 4] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).y * m3dj.header.scale);
+            model.meshes[k].vertices[l*9 + 5] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).z * m3dj.header.scale);
+            model.meshes[k].vertices[l*9 + 6] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).x * m3dj.header.scale);
+            model.meshes[k].vertices[l*9 + 7] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).y * m3dj.header.scale);
+            model.meshes[k].vertices[l*9 + 8] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).z * m3dj.header.scale);
 
             // Without vertices color (full transparency), we use the default color
             if (model.meshes[k].colors != null) {
@@ -304,6 +326,7 @@ public class RenderTesting {
             }
         }
 
+        /*
         M3DJ_Property property;
 
         // Load materials
@@ -375,7 +398,6 @@ public class RenderTesting {
                                     break;
                             }
                         }
-                     */
                 }
             }
         }
@@ -441,6 +463,34 @@ public class RenderTesting {
             }
         }
         */
+
+        // Make sure model transform is set to identity matrix!
+        model.transform = MatrixIdentity();
+
+        if (model.meshCount == 0) {
+            model.meshCount = 1;
+            model.meshes = new Mesh[model.meshCount];
+            if(SUPPORT_MESH_GENERATION) {
+                model.meshes[0] = rlj.models.GenMeshCube(1.0f, 1.0f, 1.0f);
+            }
+        }
+        else {
+            // Upload vertex data to GPU (static mesh)
+            for (int z = 0; z < model.meshCount; z++) {
+                rlj.models.UploadMesh(model.meshes[z], false);
+            }
+        }
+
+        if (model.materialCount == 0) {
+
+            model.materialCount = 1;
+            model.materials = new Material[model.materialCount];
+            model.materials[0] = rlj.models.LoadMaterialDefault();
+
+            if (model.meshMaterial == null) {
+                model.meshMaterial = new int[model.meshCount];
+            }
+        }
 
         return model;
     }
