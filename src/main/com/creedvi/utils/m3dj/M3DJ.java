@@ -25,7 +25,8 @@ public class M3DJ {
     private final int MAGIC_LENGTH = 4;
     private final int M3D_BONEMAXLEVEL = 64;
 
-    private boolean VERTEX_MAX = false;
+    private boolean processVertexMax = false;
+    private boolean processExtras = false;
     private boolean CMAP_Loaded = false;
     private boolean TMAP_Loaded = false;
     private boolean VRTS_Loaded = false;
@@ -61,8 +62,12 @@ public class M3DJ {
      *
      * @param b true enables maximum parsing; false disables maximum parsing.
      */
-    public void EnableVertexMax(boolean b) {
-        VERTEX_MAX = b;
+    public void ProcessVertexMax(boolean b) {
+        processVertexMax = b;
+    }
+
+    public void ProcessExtras(boolean b) {
+        processExtras = b;
     }
 
     /**
@@ -207,7 +212,16 @@ public class M3DJ {
             model.header.DumpBitField(logger);
 
             while (fileData.position() < chunkSize) {
-                model.header.stringTable.add(ReadString(fileData, 0));
+                String s = "";
+                char c;
+                do {
+                    c = (char) fileData.get();
+                    if (c != '\0') {
+                        s += c;
+                    }
+                } while (c != '\0');
+
+                model.header.stringTable.add(s);
             }
 
             model.header.title = model.header.stringTable.get(0);
@@ -277,7 +291,7 @@ public class M3DJ {
                         logger.out(Tracelog.LogType.LOG_ERROR, "Additional color map chunk encountered. Color map chunk must be unique.");
                         continue;
                     }
-                    if (model.header.TI_T == UNDEFINED) {
+                    if (model.header.CI_T == UNDEFINED) {
                         logger.out(Tracelog.LogType.LOG_ERROR, "Encountered color map chunk while datatype is null.");
                         continue;
                     }
@@ -293,10 +307,10 @@ public class M3DJ {
 
                     while (fileData.position() < chunkEnd) {
                         M3DJ_Color color = new M3DJ_Color();
-                        color.a = fileData.get();
-                        color.b = fileData.get();
-                        color.g = fileData.get();
-                        color.r = fileData.get();
+                        color.r = Byte.toUnsignedInt(fileData.get());
+                        color.g = Byte.toUnsignedInt(fileData.get());
+                        color.b = Byte.toUnsignedInt(fileData.get());
+                        color.a = Byte.toUnsignedInt(fileData.get());
 
                         model.colors.add(color);
                     }
@@ -427,7 +441,6 @@ public class M3DJ {
                             }
                         }
 
-                        //TODO:: FIX::
                         vertex.skinIndex = GetIndex(fileData, model.header.SK_T.size);
 
                         model.vertices.add(vertex);
@@ -464,7 +477,9 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
                     M3DJ_Material material = new M3DJ_Material();
-                    material.name = ReadString(fileData, 0);
+                    material.name = GetString(fileData, model.header.SI_T.size);
+
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Material name: " + material.name);
 
                     for (M3DJ_Material mat : model.materials) {
                         if (mat.name.equals(material.name)) {
@@ -474,18 +489,20 @@ public class M3DJ {
                     }
 
                     while (fileData.position() < chunkEnd) {
-                        // todo: load materials
                         M3DJ_Property property = new M3DJ_Property();
 
-                        int propValue = Byte.toUnsignedInt(fileData.get());
-                        System.out.println(propValue);
+                        byte propValue = fileData.get();
+                        System.out.println(Byte.toUnsignedInt(propValue));
 
-                        if (propValue >= 128) {
+                        if (Byte.toUnsignedInt(propValue) >= 128) {
                             property.format = PropertyFormat.MAP;
-                        } else {
+                        }
+                        else {
                             for (int j = 0; j < propertyTypes.length; j++) {
                                 if (propValue == propertyTypes[j].id) {
                                     property.format = propertyTypes[j].format;
+                                    property.key = propertyTypes[j].key;
+                                    property.id = propertyTypes[j].id;
                                     break;
                                 }
                             }
@@ -497,23 +514,28 @@ public class M3DJ {
                                     case UINT8:
                                         if (!model.colors.isEmpty()) {
                                             property.SetPropertyValue((int) fileData.get());
-                                        } else {
-                                            property.SetPropertyValue(0);
                                         }
-                                        fileData.get();
+                                        else {
+                                            property.SetPropertyValue(0);
+                                            fileData.get();
+                                        }
                                         break;
                                     case UINT16:
                                         if (!model.colors.isEmpty()) {
                                             property.SetPropertyValue(fileData.getShort());
-                                        } else {
+                                        }
+                                        else {
                                             property.SetPropertyValue(0);
+                                            fileData.getShort();
                                         }
                                         break;
                                     case UINT32:
                                         if (!model.colors.isEmpty()) {
                                             property.SetPropertyValue(fileData.getInt());
-                                        } else {
+                                        }
+                                        else {
                                             property.SetPropertyValue(0);
+                                            fileData.getInt();
                                         }
                                         break;
                                 }
@@ -521,7 +543,6 @@ public class M3DJ {
 
                             case UINT8:
                                 property.SetPropertyValue(fileData.get());
-                                fileData.get();
                                 break;
                             case UINT16:
                                 property.SetPropertyValue(fileData.getShort());
@@ -534,7 +555,7 @@ public class M3DJ {
                                 break;
 
                             case MAP:
-                                String name = ReadString(fileData, model.header.SI_T.size);
+                                String name = GetString(fileData, model.header.SI_T.size);
                                 //todo: get textureId from string...
                                 //property.SetPropertyValue();
                                 break;
@@ -571,8 +592,7 @@ public class M3DJ {
                     int materialIndex = M3D_UNDEF;
                     int parameterIndex = M3D_UNDEF;
 
-                    for (; fileData.position() < chunkEnd; ) {
-
+                    while (fileData.position() < chunkEnd) {
                         byte recordMagic = fileData.get();
                         byte n = (byte) (recordMagic >> 4);
                         byte k = (byte) (recordMagic & 15);
@@ -583,7 +603,7 @@ public class M3DJ {
 
                         if (n == 0) {
                             if (k == 0) {
-                                String name = ReadString(fileData, model.header.SI_T.size);
+                                String name = GetString(fileData, model.header.SI_T.size);
                                 if (!name.isEmpty()) {
                                     for (int i = 0; i < model.materials.size(); i++) {
                                         if (name.equals(model.materials.get(i).name)) {
@@ -595,9 +615,10 @@ public class M3DJ {
                                         logger.out(Tracelog.LogType.LOG_ERROR, "Model references unknown material: " + name + ".");
                                     }
                                 }
-                            } else {
-                                String name = ReadString(fileData, model.header.SI_T.size);
-                                if (VERTEX_MAX) {
+                            }
+                            else {
+                                String name = GetString(fileData, model.header.SI_T.size);
+                                if (processVertexMax) {
                                     if (!name.isEmpty()) {
                                         for (int i = 0; i < model.parameters.size(); i++) {
                                             if (name.equals(model.parameters.get(i).name)) {
@@ -614,8 +635,8 @@ public class M3DJ {
                                         }
                                     }
                                 }
-                                continue;
                             }
+                            continue;
                         }
 
                         if (n != 3) {
@@ -640,7 +661,7 @@ public class M3DJ {
                             }
 
                             if ((k & 4) != 0) {
-                                if (VERTEX_MAX) {
+                                if (processVertexMax) {
                                     face.vertMax[j] = GetIndex(fileData, model.header.VI_T.size);
                                 }
                                 else {
@@ -725,8 +746,13 @@ public class M3DJ {
                     return model;
 
                 default:
-                    logger.out(Tracelog.LogType.LOG_WARNING, "Unexpected magic value encountered:" +
-                            "\n\t" + magic + " at position " + fileData.position() + ". Attempting to skip and continue parsing...");
+                    if (!processExtras) {
+                        logger.out(Tracelog.LogType.LOG_WARNING, "Unexpected magic value encountered:" +
+                                "\n\t" + magic + " at position " + fileData.position() + ". Attempting to skip and continue parsing...");
+                    }
+                    else {
+                        logger.out(Tracelog.LogType.LOG_INFO, "Nonstandard magic value encountered:" + magic + " Evaluating as an extra");
+                    }
                     break;
             }
 
@@ -746,22 +772,22 @@ public class M3DJ {
         };
     }
 
-    private String ReadString(ByteBuffer fileData, int stringOffset) {
-        String result = "";
-        char c;
+    private String GetString(ByteBuffer fileData, int stringOffset) {
+        int position = fileData.position();
+        int offset = GetIndex(fileData, stringOffset);
 
+        String s = "";
+        char c;
         do {
-            c = (char) fileData.get();
+            c = (char) fileData.get(16 + offset);
+            offset++;
             if (c != '\0') {
-                result += c;
+                s += c;
             }
         } while (c != '\0');
 
-        for (int i = 0; i < stringOffset; i++) {
-            fileData.get();
-        }
-
-        return result;
+        fileData.position(position + stringOffset);
+        return s;
     }
 
     private ByteBuffer DecompressDataBuffer(ByteBuffer compressedData) {
@@ -847,6 +873,7 @@ public class M3DJ {
           "}\n\n"
         );
 
+        // Color map
         if (!model.colors.isEmpty()) {
             output.append("model.colors = {\n");
             for(M3DJ_Color color : model.colors) {
@@ -860,6 +887,7 @@ public class M3DJ {
             output.append("}\n");
         }
 
+        // Texture Map
         if (!model.textureMap.isEmpty()) {
             output.append("model.textureMap = {\n");
             for(M3DJ_TextureCoordinate textureCoordinate : model.textureMap) {
@@ -871,6 +899,7 @@ public class M3DJ {
             output.append("}\n");
         }
 
+        // Vertices
         if (!model.vertices.isEmpty()) {
             output.append("model.vertices = {\n");
             for(M3DJ_Vertex vertex : model.vertices) {
@@ -886,6 +915,7 @@ public class M3DJ {
             output.append("}\n");
         }
 
+        // Faces
         if (!model.faces.isEmpty()) {
             output.append("model.faces = {\n");
             for(M3DJ_Face face : model.faces) {
@@ -900,6 +930,49 @@ public class M3DJ {
                 output.append(" }\n");
             }
             output.append("}\n");
+        }
+
+        //Bones
+        if (!model.bones.isEmpty()) {
+
+        }
+
+        // Skins
+        if (!model.skins.isEmpty()) {
+
+        }
+
+        // Materials
+        if (!model.materials.isEmpty()) {
+            output.append("model.materials = {\n");
+            int i = 0;
+            for (M3DJ_Material material : model.materials) {
+                output.append("\t" + i + " = { " + "\n");
+                output.append("\t\tName: " + material.name + "\n");
+                output.append("\t\tNumber of Properties: " + material.properties.size() + "\n");
+                output.append("\t\tProperties = {\n");
+                for (M3DJ_Property property : material.properties) {
+                    output.append("\t\t\t{ ");
+                    output.append("Type: " + property.id + ", ");
+                    output.append("Key: " + property.key + ", ");
+                    output.append(property.format + ".value: " + property.GetPropertyValue() + " }\n");
+                }
+                output.append("\t\t}\n");
+                output.append("\t}\n");
+
+                i++;
+            }
+            output.append("}\n");
+        }
+
+        // Actions
+        if(!model.actions.isEmpty()) {
+            // TODO
+        }
+
+        // Extras
+        if (!model.extras.isEmpty()) {
+
         }
 
         if (filePath == null) {

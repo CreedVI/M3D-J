@@ -16,6 +16,8 @@ public class M3DJ_Model {
     public ArrayList<M3DJ_Face> faces;
     public ArrayList<M3DJ_Parameter> parameters;
     public ArrayList<M3DJ_Skin> skins;
+    public ArrayList<M3DJ_Action> actions;
+    public ArrayList<M3DJ_Extra> extras;
 
     public M3DJ_Model() {
         this.preview = new M3DJ_Preview();
@@ -28,6 +30,8 @@ public class M3DJ_Model {
         this.faces = new ArrayList<>();
         this.parameters = new ArrayList<>();
         this.skins = new ArrayList<>();
+        this.actions = new ArrayList<>();
+        this.extras = new ArrayList<>();
     }
 
 }
