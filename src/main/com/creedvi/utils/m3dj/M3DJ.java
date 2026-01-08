@@ -306,8 +306,8 @@ public class M3DJ {
                 chunkEnd = fileData.position() + chunkSize;
             }
 
-            // logger.out(Tracelog.LogType.LOG_DEBUG, "===");
-            // logger.out(Tracelog.LogType.LOG_DEBUG, "Magic reads: " + magic);
+            logger.out(Tracelog.LogType.LOG_DEBUG, "===");
+            logger.out(Tracelog.LogType.LOG_DEBUG, "Magic reads: " + magic);
 
             switch(magic.toString()) {
                 case "CMAP":
@@ -802,12 +802,55 @@ public class M3DJ {
                     break;
 
                 case "LBLS":
+                    int recordLength = model.header.VI_T.size + model.header.SI_T.size;
+                    i = chunkSize / recordLength;
+
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Label size: " + recordLength);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected number of labels: " + i);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected end position: " + chunkEnd);
 
                     for(i = 0; i < chunkSize; i++) {
-                        // todo: load animation labels
-                        fileData.get();
+                        String labelName = GetString(fileData, model.header.SI_T.size);
+                        String labelLanguage = GetString(fileData, model.header.SI_T.size);
+                        if(!labelName.isBlank()) {
+                            logger.out(Tracelog.LogType.LOG_DEBUG, "Label name: " + labelName);
+                        }
+                        if(!labelLanguage.isBlank()) {
+                            logger.out(Tracelog.LogType.LOG_DEBUG, "Label Language: " + labelLanguage);
+                        }
+                        if(model.header.CI_T != null && model.header.CI_T.size < 4 && model.colors.isEmpty()) {
+                            logger.out(Tracelog.LogType.LOG_ERROR, "No color map data was loaded prior to encountering labels. Returning null object...");
+                            return null;
+                        }
+
+                        int k = 0;
+                        switch(model.header.CI_T.size) {
+                            case 1:
+                                k = model.colors.isEmpty() ? (int) fileData.get() : 0;
+                                break;
+                            case 2:
+                                k = model.colors.isEmpty() ? (int) fileData.getShort() : 0;
+                                break;
+                            case 4:
+                                k = fileData.getInt();
+                                break;
+                            case 8:
+                                break;
+                        }
+
+                        while(fileData.position() < chunkEnd) {
+                            M3DJ_Label label = new M3DJ_Label();
+
+                            label.name = labelName;
+                            label.language = labelLanguage;
+                            label.colorId = k;
+                            label.vertexId = GetIndex(fileData, model.header.VI_T.size);
+                            label.text = GetString(fileData, model.header.SI_T.size);
+
+                            model.labels.add(label);
+                        }
                     }
                     break;
 
@@ -839,8 +882,8 @@ public class M3DJ {
 
                 default:
                     if(!processExtras) {
-                        // logger.out(Tracelog.LogType.LOG_WARNING, "Unexpected magic value encountered:" +
-                        //         "\n\t" + magic + " at position " + fileData.position() + ". Attempting to skip and continue parsing...");
+                        logger.out(Tracelog.LogType.LOG_WARNING, "Unexpected magic value encountered:" +
+                                 "\n\t" + magic + " at position " + fileData.position() + ". Attempting to skip and continue parsing...");
                     }
                     else {
                         logger.out(Tracelog.LogType.LOG_INFO, "Nonstandard magic value encountered:" + magic + " Evaluating as an extra");
@@ -986,8 +1029,7 @@ public class M3DJ {
                         "\tVoxels not implemented...\n" +
                         // "\tNumber of Shapes: " + model.colors.size() + "\n" +
                         "\tShapes not implemented...\n" +
-                        // "\tNumber of Labels: " + model.colors.size() + "\n" +
-                        "\tLabels not implemented...\n" +
+                        "\tNumber of Labels: " + model.labels.size() + "\n" +
                         // "\tNumber of Actions: " + model.colors.size() + "\n" +
                         "\tActions not implemented...\n" +
                         // "\tNumber of Inlined Assets: " + model.colors.size() + "\n" +
@@ -1100,6 +1142,22 @@ public class M3DJ {
                 output.append("\t}\n");
 
                 i++;
+            }
+            output.append("}\n");
+        }
+
+        //Labels
+        if(!model.labels.isEmpty()) {
+            output.append("model.labels = {\n");
+            for(M3DJ_Label label : model.labels) {
+                output.append("\t{" +
+                        "name: " + label.name + ", " +
+                        "language: " + label.language + ", " +
+                        "text: " + label.text + ", " +
+                        "colorId: " + label.colorId + ", " +
+                        "vertexId: " + label.vertexId + ", " +
+                        "}," +
+                        "\n");
             }
             output.append("}\n");
         }

@@ -3,7 +3,6 @@ Under Development.
 
 TODO:\
 PROC evaluation\
-LBLS evaluation\
 ATCN evaluation\
 MTRL Map fetching (textures)\
 ASET evaluation
