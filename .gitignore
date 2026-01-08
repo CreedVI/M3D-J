@@ -3,3 +3,4 @@ out/
 .gradle/
 META-INF/
 build/
+*.dump
