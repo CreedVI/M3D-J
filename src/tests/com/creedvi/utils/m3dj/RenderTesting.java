@@ -23,17 +23,17 @@ public class RenderTesting {
     static Raylib rlj;
 
     public final static int
-            MATERIAL_MAP_ALBEDO    = 0,     // Albedo material (same as: MATERIAL_MAP_DIFFUSE)
+            MATERIAL_MAP_ALBEDO = 0,     // Albedo material (same as: MATERIAL_MAP_DIFFUSE)
             MATERIAL_MAP_METALNESS = 1,     // Metalness material (same as: MATERIAL_MAP_SPECULAR)
-            MATERIAL_MAP_NORMAL    = 2,     // Normal material
+            MATERIAL_MAP_NORMAL = 2,     // Normal material
             MATERIAL_MAP_ROUGHNESS = 3,     // Roughness material
             MATERIAL_MAP_OCCLUSION = 4,     // Ambient occlusion material
-            MATERIAL_MAP_EMISSION  = 5,     // Emission material
-            MATERIAL_MAP_HEIGHT    = 6,     // Heightmap material
-            MATERIAL_MAP_CUBEMAP   = 7,     // Cubemap material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
-            MATERIAL_MAP_IRRADIANCE= 8,     // Irradiance material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
+            MATERIAL_MAP_EMISSION = 5,     // Emission material
+            MATERIAL_MAP_HEIGHT = 6,     // Heightmap material
+            MATERIAL_MAP_CUBEMAP = 7,     // Cubemap material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
+            MATERIAL_MAP_IRRADIANCE = 8,     // Irradiance material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
             MATERIAL_MAP_PREFILTER = 9,     // Prefilter material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
-            MATERIAL_MAP_BRDF      = 10;    // Brdf material
+            MATERIAL_MAP_BRDF = 10;    // Brdf material
     public final static int MATERIAL_MAP_DIFFUSE = 0;
     public final static int MATERIAL_MAP_SPECULAR = 1;
 
@@ -57,15 +57,14 @@ public class RenderTesting {
         M3DJ_Model m3dj;
 
         try {
-             m3dj = parser.LoadFile("assets/suzanne.m3d");
-        }
-        catch (IOException e) {
+            m3dj = parser.LoadFile("assets/suzanne.m3d");
+        } catch(IOException e) {
             throw new RuntimeException(e);
         }
 
         Model model = ConvertToRaylib(m3dj);                 // Load model
 
-        Vector3 position = new Vector3(0,0,0);                    // Set model position
+        Vector3 position = new Vector3(0, 0, 0);                    // Set model position
 
         BoundingBox bounds = rlj.models.GetMeshBoundingBox(model.meshes[0]);   // Set model bounds
 
@@ -78,15 +77,15 @@ public class RenderTesting {
         //--------------------------------------------------------------------------------------
 
         // Main game loop
-        while (!rlj.core.WindowShouldClose()) {   // Detect window close button or ESC key
+        while(!rlj.core.WindowShouldClose()) {   // Detect window close button or ESC key
             // Update
             //----------------------------------------------------------------------------------
             camera.Update(CAMERA_FREE);
 
             // Select model on mouse click
-            if (rlj.core.IsMouseButtonPressed(MOUSE_BUTTON_LEFT.ordinal())) {
+            if(rlj.core.IsMouseButtonPressed(MOUSE_BUTTON_LEFT.ordinal())) {
                 // Check collision between ray and box
-                if (rlj.models.GetRayCollisionBox(rlj.core.GetMouseRay(rlj.core.GetMousePosition(), camera), bounds).hit) {
+                if(rlj.models.GetRayCollisionBox(rlj.core.GetMouseRay(rlj.core.GetMousePosition(), camera), bounds).hit) {
                     selected = !selected;
                 }
                 else {
@@ -107,13 +106,13 @@ public class RenderTesting {
 
             rlj.models.DrawGrid(20, 10.0f);         // Draw a grid
 
-            if (selected) {
+            if(selected) {
                 rlj.models.DrawBoundingBox(bounds, GREEN);   // Draw selection box
             }
 
             rlj.core.EndMode3D();
 
-            if (selected) {
+            if(selected) {
                 rlj.text.DrawText("MODEL SELECTED", rlj.core.GetScreenWidth() - 110, 10, 10, GREEN);
             }
 
@@ -129,16 +128,17 @@ public class RenderTesting {
         int i, j, k, l, n, mi = -2, vcolor;
 
         // no faces? this is probably just a material library
-        if (m3dj.faces.isEmpty()) {
+        if(m3dj.faces.isEmpty()) {
             return model;
         }
 
-        if (!m3dj.materials.isEmpty()) {
+        if(!m3dj.materials.isEmpty()) {
             model.meshCount = model.materialCount = m3dj.materials.size();
             TRACELOG(LOG_INFO, "MODEL: model has " + model.materialCount + " material meshes");
         }
         else {
-            model.meshCount = 1; model.materialCount = 0;
+            model.meshCount = 1;
+            model.materialCount = 0;
             TRACELOG(LOG_INFO, "MODEL: No materials, putting all meshes in a default material");
         }
 
@@ -169,33 +169,33 @@ public class RenderTesting {
         */
 
         model.meshes = new Mesh[model.meshCount];
-        for (int m = 0; m < model.meshes.length; m++) {
+        for(int m = 0; m < model.meshes.length; m++) {
             model.meshes[m] = new Mesh();
         }
 
         model.meshMaterial = new int[model.meshCount];
 
         model.materials = new Material[model.materialCount + 1];
-        for (int m = 0; m < model.materials.length; m++) {
+        for(int m = 0; m < model.materials.length; m++) {
             model.materials[m] = new Material();
         }
 
         // Map no material to index 0 with default shader, everything else materialId + 1
         model.materials[0] = rlj.models.LoadMaterialDefault();
 
-        for (i = l = 0, k = -1; i < m3dj.faces.size(); i++, l++) {
+        for(i = l = 0, k = -1; i < m3dj.faces.size(); i++, l++) {
             // Materials are grouped together
-            if (mi != m3dj.faces.get(i).materialId) {
+            if(mi != m3dj.faces.get(i).materialId) {
                 // There should be only one material switch per material kind,
                 // but be bulletproof for non-optimal model files
-                if (k + 1 >= model.meshCount) {
+                if(k + 1 >= model.meshCount) {
                     model.meshCount++;
 
                     // Create a second buffer for mesh re-allocation
                     Mesh[] tempMeshes = new Mesh[model.meshCount];
                     System.arraycopy(model.meshes, 0, tempMeshes, 0, model.meshCount - 1);
                     model.meshes = tempMeshes;
-                    for (int m = 0; m < model.meshes.length; m++) {
+                    for(int m = 0; m < model.meshes.length; m++) {
                         model.meshes[m] = new Mesh();
                     }
 
@@ -210,40 +210,40 @@ public class RenderTesting {
 
                 // Only allocate colors VertexBuffer if there's a color vertices in the model for this material batch
                 // if all colors are fully transparent black for all vertices of this material, then we assume no vertices colors
-                for (j = i, l = vcolor = 0; (j < m3dj.faces.size()) && (mi == m3dj.faces.get(j).materialId); j++, l++) {
-                    if (
+                for(j = i, l = vcolor = 0; (j < m3dj.faces.size()) && (mi == m3dj.faces.get(j).materialId); j++, l++) {
+                    if(
                             m3dj.vertices.get(m3dj.faces.get(j).vertices[0]).colorIndex != 0 ||
-                            m3dj.vertices.get(m3dj.faces.get(j).vertices[1]).colorIndex != 0 ||
-                            m3dj.vertices.get(m3dj.faces.get(j).vertices[2]).colorIndex != 0
+                                    m3dj.vertices.get(m3dj.faces.get(j).vertices[1]).colorIndex != 0 ||
+                                    m3dj.vertices.get(m3dj.faces.get(j).vertices[2]).colorIndex != 0
                     ) {
                         vcolor = 1;
                     }
                 }
 
-                model.meshes[k].vertexCount = l*3;
+                model.meshes[k].vertexCount = l * 3;
                 model.meshes[k].triangleCount = l;
-                model.meshes[k].vertices = new float[model.meshes[k].vertexCount*3];
-                model.meshes[k].texcoords = new float[model.meshes[k].vertexCount*2];
-                model.meshes[k].normals = new float[model.meshes[k].vertexCount*3];
+                model.meshes[k].vertices = new float[model.meshes[k].vertexCount * 3];
+                model.meshes[k].texcoords = new float[model.meshes[k].vertexCount * 2];
+                model.meshes[k].normals = new float[model.meshes[k].vertexCount * 3];
 
                 // If no map is provided, or we have colors defined, we allocate storage for vertices colors
                 // M3D specs only consider vertices colors if no material is provided, however raylib uses both and mixes the colors
-                if ((mi == M3D_UNDEF) || vcolor != 0) {
+                if((mi == M3D_UNDEF) || vcolor != 0) {
                     model.meshes[k].colors = new byte[model.meshes[k].vertexCount * 4];
                 }
 
                 // If no map is provided and we allocated vertices colors, set them to white
-                if ((mi == M3D_UNDEF) && (model.meshes[k].colors != null)) {
-                    for (int c = 0; c < model.meshes[k].vertexCount*4; c++) {
+                if((mi == M3D_UNDEF) && (model.meshes[k].colors != null)) {
+                    for(int c = 0; c < model.meshes[k].vertexCount * 4; c++) {
                         model.meshes[k].colors[c] = (byte) 255;
                     }
                 }
 
-                if (!m3dj.bones.isEmpty() && !m3dj.skins.isEmpty()) {
-                    model.meshes[k].boneIds = new byte[model.meshes[k].vertexCount*4];
-                    model.meshes[k].boneWeights = new float[model.meshes[k].vertexCount*4];
-                    model.meshes[k].animVertices = new float[model.meshes[k].vertexCount*3];
-                    model.meshes[k].animNormals = new float[model.meshes[k].vertexCount*3];
+                if(!m3dj.bones.isEmpty() && !m3dj.skins.isEmpty()) {
+                    model.meshes[k].boneIds = new byte[model.meshes[k].vertexCount * 4];
+                    model.meshes[k].boneWeights = new float[model.meshes[k].vertexCount * 4];
+                    model.meshes[k].animVertices = new float[model.meshes[k].vertexCount * 3];
+                    model.meshes[k].animNormals = new float[model.meshes[k].vertexCount * 3];
                 }
 
                 model.meshMaterial[k] = mi + 1;
@@ -251,31 +251,31 @@ public class RenderTesting {
             }
 
             // Process meshes per material, add triangles
-            model.meshes[k].vertices[l*9 + 0] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).x * m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 1] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).y * m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 2] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).z * m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 3] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).x * m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 4] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).y * m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 5] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).z * m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 6] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).x * m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 7] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).y * m3dj.header.scale);
-            model.meshes[k].vertices[l*9 + 8] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).z * m3dj.header.scale);
+            model.meshes[k].vertices[l * 9] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).x * m3dj.header.scale);
+            model.meshes[k].vertices[l * 9 + 1] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).y * m3dj.header.scale);
+            model.meshes[k].vertices[l * 9 + 2] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).z * m3dj.header.scale);
+            model.meshes[k].vertices[l * 9 + 3] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).x * m3dj.header.scale);
+            model.meshes[k].vertices[l * 9 + 4] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).y * m3dj.header.scale);
+            model.meshes[k].vertices[l * 9 + 5] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).z * m3dj.header.scale);
+            model.meshes[k].vertices[l * 9 + 6] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).x * m3dj.header.scale);
+            model.meshes[k].vertices[l * 9 + 7] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).y * m3dj.header.scale);
+            model.meshes[k].vertices[l * 9 + 8] = (float) (m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).z * m3dj.header.scale);
 
             // Without vertices color (full transparency), we use the default color
-            if (model.meshes[k].colors != null) {
-                if ((m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).colorIndex & 0xff000000) != 0) {
-                    model.meshes[k].colors[l * 12 + 0] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).colorIndex).r;
+            if(model.meshes[k].colors != null) {
+                if((m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).colorIndex & 0xff000000) != 0) {
+                    model.meshes[k].colors[l * 12] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).colorIndex).r;
                     model.meshes[k].colors[l * 12 + 1] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).colorIndex).g;
                     model.meshes[k].colors[l * 12 + 2] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).colorIndex).b;
                     model.meshes[k].colors[l * 12 + 3] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[0]).colorIndex).a;
                 }
-                if ((m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex & 0xff000000) != 0) {
+                if((m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex & 0xff000000) != 0) {
                     model.meshes[k].colors[l * 12 + 4] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex).r;
                     model.meshes[k].colors[l * 12 + 5] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex).g;
                     model.meshes[k].colors[l * 12 + 6] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex).b;
                     model.meshes[k].colors[l * 12 + 7] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[1]).colorIndex).a;
                 }
-                if ((m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).colorIndex & 0xff000000) != 0) {
+                if((m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).colorIndex & 0xff000000) != 0) {
                     model.meshes[k].colors[l * 12 + 8] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).colorIndex).r;
                     model.meshes[k].colors[l * 12 + 9] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).colorIndex).g;
                     model.meshes[k].colors[l * 12 + 10] = (byte) m3dj.colors.get(m3dj.vertices.get(m3dj.faces.get(i).vertices[2]).colorIndex).b;
@@ -283,44 +283,44 @@ public class RenderTesting {
                 }
             }
 
-            if (m3dj.faces.get(i).texCoords[0] != M3D_UNDEF) {
-                model.meshes[k].texcoords[l*6 + 0] = (float) m3dj.textureMap.get(m3dj.faces.get(i).texCoords[0]).u;
-                model.meshes[k].texcoords[l*6 + 1] = (float) (1.0f - m3dj.textureMap.get(m3dj.faces.get(i).texCoords[0]).v);
-                model.meshes[k].texcoords[l*6 + 2] = (float) m3dj.textureMap.get(m3dj.faces.get(i).texCoords[1]).u;
-                model.meshes[k].texcoords[l*6 + 3] = (float) (1.0f - m3dj.textureMap.get(m3dj.faces.get(i).texCoords[1]).v);
-                model.meshes[k].texcoords[l*6 + 4] = (float) m3dj.textureMap.get(m3dj.faces.get(i).texCoords[2]).u;
-                model.meshes[k].texcoords[l*6 + 5] = (float) (1.0f - m3dj.textureMap.get(m3dj.faces.get(i).texCoords[2]).v);
+            if(m3dj.faces.get(i).texCoords[0] != M3D_UNDEF) {
+                model.meshes[k].texcoords[l * 6] = (float) m3dj.textureMap.get(m3dj.faces.get(i).texCoords[0]).u;
+                model.meshes[k].texcoords[l * 6 + 1] = (float) (1.0f - m3dj.textureMap.get(m3dj.faces.get(i).texCoords[0]).v);
+                model.meshes[k].texcoords[l * 6 + 2] = (float) m3dj.textureMap.get(m3dj.faces.get(i).texCoords[1]).u;
+                model.meshes[k].texcoords[l * 6 + 3] = (float) (1.0f - m3dj.textureMap.get(m3dj.faces.get(i).texCoords[1]).v);
+                model.meshes[k].texcoords[l * 6 + 4] = (float) m3dj.textureMap.get(m3dj.faces.get(i).texCoords[2]).u;
+                model.meshes[k].texcoords[l * 6 + 5] = (float) (1.0f - m3dj.textureMap.get(m3dj.faces.get(i).texCoords[2]).v);
             }
 
-            if (m3dj.faces.get(i).normals[0] != M3D_UNDEF) {
-                model.meshes[k].normals[l*9 + 0] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[0]).x;
-                model.meshes[k].normals[l*9 + 1] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[0]).y;
-                model.meshes[k].normals[l*9 + 2] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[0]).z;
-                model.meshes[k].normals[l*9 + 3] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[1]).x;
-                model.meshes[k].normals[l*9 + 4] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[1]).y;
-                model.meshes[k].normals[l*9 + 5] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[1]).z;
-                model.meshes[k].normals[l*9 + 6] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[2]).x;
-                model.meshes[k].normals[l*9 + 7] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[2]).y;
-                model.meshes[k].normals[l*9 + 8] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[2]).z;
+            if(m3dj.faces.get(i).normals[0] != M3D_UNDEF) {
+                model.meshes[k].normals[l * 9] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[0]).x;
+                model.meshes[k].normals[l * 9 + 1] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[0]).y;
+                model.meshes[k].normals[l * 9 + 2] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[0]).z;
+                model.meshes[k].normals[l * 9 + 3] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[1]).x;
+                model.meshes[k].normals[l * 9 + 4] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[1]).y;
+                model.meshes[k].normals[l * 9 + 5] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[1]).z;
+                model.meshes[k].normals[l * 9 + 6] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[2]).x;
+                model.meshes[k].normals[l * 9 + 7] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[2]).y;
+                model.meshes[k].normals[l * 9 + 8] = (float) m3dj.vertices.get(m3dj.faces.get(i).normals[2]).z;
             }
 
             // Add skin (vertices / bone weight pairs)
-            if (!m3dj.bones.isEmpty() /*&& !m3dj.skins.isEmpty*/) {
-                for (n = 0; n < 3; n++) {
+            if(!m3dj.bones.isEmpty() /*&& !m3dj.skins.isEmpty*/) {
+                for(n = 0; n < 3; n++) {
                     int skinId = m3dj.vertices.get(m3dj.faces.get(i).vertices[n]).skinIndex;
 
                     // Check if there is a skin for this mesh, should be, just failsafe
-                    if ((skinId != M3D_UNDEF) && (skinId < m3dj.skins.size())) {
-                        for (j = 0; j < 4; j++) {
-                            model.meshes[k].boneIds[l*12 + n*4 + j] = (byte) m3dj.skins.get(skinId).boneIds[j];
-                            model.meshes[k].boneWeights[l*12 + n*4 + j] = m3dj.skins.get(skinId).weights[j];
+                    if((skinId != M3D_UNDEF) && (skinId < m3dj.skins.size())) {
+                        for(j = 0; j < 4; j++) {
+                            model.meshes[k].boneIds[l * 12 + n * 4 + j] = (byte) m3dj.skins.get(skinId).boneIds[j];
+                            model.meshes[k].boneWeights[l * 12 + n * 4 + j] = m3dj.skins.get(skinId).weights[j];
                         }
                     }
                     else {
                         // raylib does not handle boneless meshes with skeletal animations, so
                         // we put all vertices without a bone into a special "no bone" bone
-                        model.meshes[k].boneIds[l*12 + n*4] = (byte) m3dj.bones.size();
-                        model.meshes[k].boneWeights[l*12 + n*4] = 1.0f;
+                        model.meshes[k].boneIds[l * 12 + n * 4] = (byte) m3dj.bones.size();
+                        model.meshes[k].boneWeights[l * 12 + n * 4] = 1.0f;
                     }
                 }
             }
@@ -467,7 +467,7 @@ public class RenderTesting {
         // Make sure model transform is set to identity matrix!
         model.transform = MatrixIdentity();
 
-        if (model.meshCount == 0) {
+        if(model.meshCount == 0) {
             model.meshCount = 1;
             model.meshes = new Mesh[model.meshCount];
             if(SUPPORT_MESH_GENERATION) {
@@ -476,18 +476,18 @@ public class RenderTesting {
         }
         else {
             // Upload vertex data to GPU (static mesh)
-            for (int z = 0; z < model.meshCount; z++) {
+            for(int z = 0; z < model.meshCount; z++) {
                 rlj.models.UploadMesh(model.meshes[z], false);
             }
         }
 
-        if (model.materialCount == 0) {
+        if(model.materialCount == 0) {
 
             model.materialCount = 1;
             model.materials = new Material[model.materialCount];
             model.materials[0] = rlj.models.LoadMaterialDefault();
 
-            if (model.meshMaterial == null) {
+            if(model.meshMaterial == null) {
                 model.meshMaterial = new int[model.meshCount];
             }
         }

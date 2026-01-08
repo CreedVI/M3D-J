@@ -8,20 +8,20 @@ import java.util.Scanner;
 
 public class BinaryFileParsing {
 
-    private static boolean DEBUG = false;
+    private static final boolean DEBUG = false;
 
     public static void main(String[] args) {
         int failCount = 0;
         Scanner in = new Scanner(System.in);
         M3DJ parser;
-        if (DEBUG) {
+        if(DEBUG) {
             parser = new M3DJ(Tracelog.LogLevel.LEVEL_DEBUG);
         }
         else {
             parser = new M3DJ(Tracelog.LogLevel.LEVEL_ERROR);
         }
 
-        String[] filePath = new String[] {
+        String[] filePath = new String[]{
                 "assets/aliveai_character.m3d",
                 "assets/bezier.m3d",
                 "assets/CesiumMan.m3d",
@@ -35,7 +35,7 @@ public class BinaryFileParsing {
                 "assets/suzanne.m3d",
         };
 
-        for (String s : filePath) {
+        for(String s : filePath) {
             System.out.println("======");
             System.out.println("Model under test: " + s);
 
@@ -43,11 +43,11 @@ public class BinaryFileParsing {
 
             try {
                 model = parser.LoadFile(s);
-            } catch (IOException e) {
+            } catch(IOException e) {
                 throw new RuntimeException(e);
             }
 
-            if (model == null) {
+            if(model == null) {
                 System.out.println("M3D-J :: TEST :: Model file (" + s + ") failed to load.\nExiting...");
                 failCount++;
                 continue;
@@ -56,17 +56,17 @@ public class BinaryFileParsing {
                 System.out.println("M3D-J :: TEST :: Model file (" + s + ") loaded successfully.");
             }
 
-            if (DEBUG) {
+            if(DEBUG) {
                 try {
                     System.out.println("Write model dump file? Y/N");
                     System.out.println("Any input besides 'y' or 'yes' will result in no dump file being written.");
                     String input = in.next();
 
-                    if (input.equalsIgnoreCase("y") | input.equalsIgnoreCase("yes")) {
+                    if(input.equalsIgnoreCase("y") | input.equalsIgnoreCase("yes")) {
                         parser.DumpModel(model, s + ".dump");
                     }
 
-                } catch (IOException e) {
+                } catch(IOException e) {
                     throw new RuntimeException(e);
                 }
             }

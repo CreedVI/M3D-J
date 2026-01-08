@@ -34,7 +34,7 @@ public class M3DJ {
     private boolean VOXT_Loaded = false;
 
 
-    private Tracelog logger;
+    private final Tracelog logger;
 
     /**
      * Create new M3DJ Parser using the default log verbosity.
@@ -94,26 +94,28 @@ public class M3DJ {
         BONE_Loaded = false;
         VOXT_Loaded = false;
 
-        if (fileName.substring(fileName.lastIndexOf(".")).equalsIgnoreCase(".m3d") ||
+        if(fileName.substring(fileName.lastIndexOf(".")).equalsIgnoreCase(".m3d") ||
                 fileName.substring(fileName.lastIndexOf(".")).equalsIgnoreCase(".a3d")) {
             ByteBuffer fileData = ByteBuffer.wrap(IO.LoadFileData(fileName));
             fileData.order(ByteOrder.LITTLE_ENDIAN);
 
             StringBuilder magic = new StringBuilder();
-            for (int i = 0; i < MAGIC_LENGTH; i++) {
+            for(int i = 0; i < MAGIC_LENGTH; i++) {
                 magic.append((char) (fileData.get()));
             }
 
-            if (magic.toString().equals("3DMO")) {
+            if(magic.toString().equals("3DMO")) {
                 fileSize = fileData.getInt();
                 logger.out(Tracelog.LogType.LOG_INFO, "Binary magic found. File size: " + fileSize + "B");
                 result = M3DJ_LoadBinary(fileData);
-            } else if (magic.toString().equals("3dmo")) {
+            }
+            else if(magic.toString().equals("3dmo")) {
                 fileSize = fileData.getInt();
                 logger.out(Tracelog.LogType.LOG_INFO, "ASCII magic found. File size: " + fileSize + "B");
                 logger.out(Tracelog.LogType.LOG_WARNING, "ASCII parsing is not supported at this time! Object returned will be null...");
                 result = M3DJ_LoadAscii(fileData);
-            } else {
+            }
+            else {
                 logger.out(Tracelog.LogType.LOG_WARNING, "Bad magic identified. Returning null object.");
                 return null;
             }
@@ -124,13 +126,14 @@ public class M3DJ {
 
     /**
      * Parses model information from valid ASCII encoded M3D file
+     *
      * @param fileData binary data of ASCII file
      * @return M3D Model defined by file.
      */
     private M3DJ_Model M3DJ_LoadAscii(ByteBuffer fileData) {
         M3DJ_Model result = new M3DJ_Model();
 
-        while (fileData.hasRemaining()) {
+        while(fileData.hasRemaining()) {
             //todo:
         }
 
@@ -140,6 +143,7 @@ public class M3DJ {
 
     /**
      * Parses model information from valid Binary encoded M3D file
+     *
      * @param fileData binary data of M3D model
      * @return M3D Model defined by file.
      */
@@ -148,16 +152,16 @@ public class M3DJ {
         int chunkSize;
 
         StringBuilder magic = new StringBuilder();
-        for (int i = 0; i < MAGIC_LENGTH; i++) {
+        for(int i = 0; i < MAGIC_LENGTH; i++) {
             magic.append((char) (fileData.get()));
         }
 
-        if (magic.toString().equals("PRVW")) {
+        if(magic.toString().equals("PRVW")) {
             chunkSize = fileData.getInt();
 
             model.preview.allocateImageBuffer(chunkSize);
 
-            for (int i = 0; i < chunkSize; i++) {
+            for(int i = 0; i < chunkSize; i++) {
                 model.preview.imageData.put(fileData.get());
             }
 
@@ -165,27 +169,27 @@ public class M3DJ {
             model.preview.hasPreview = true;
 
             magic = new StringBuilder();
-            for (int i = 0; i < MAGIC_LENGTH; i++) {
+            for(int i = 0; i < MAGIC_LENGTH; i++) {
                 magic.append((char) (fileData.get()));
             }
         }
 
-        if (!magic.toString().equals("HEAD")) {
+        if(!magic.toString().equals("HEAD")) {
             logger.out(Tracelog.LogType.LOG_INFO, "Failed to identify header; assuming compressed data and attempting to decompress...");
             fileData = DecompressDataBuffer(fileData.slice(fileData.position() - (Byte.BYTES * 4), fileData.remaining()));
 
             magic = new StringBuilder();
-            for (int i = 0; i < MAGIC_LENGTH; i++) {
+            for(int i = 0; i < MAGIC_LENGTH; i++) {
                 magic.append((char) (fileData.get()));
             }
         }
 
-        if (magic.toString().equals("HEAD")) {
+        if(magic.toString().equals("HEAD")) {
             chunkSize = fileData.getInt();
             logger.out(Tracelog.LogType.LOG_DEBUG, "Header chunk size: " + chunkSize);
 
             model.header.scale = fileData.getFloat();
-            if (model.header.scale <= 0.0f) {
+            if(model.header.scale <= 0.0f) {
                 model.header.scale = 1.0f;
             }
             logger.out(Tracelog.LogType.LOG_DEBUG, "Scaling factor: " + model.header.scale);
@@ -205,39 +209,39 @@ public class M3DJ {
             model.header.VD_T = VariableTypes.GetVariableTypeByBytePattern(((bitField >> 22) & 3));
             model.header.VP_T = VariableTypes.GetVariableTypeByBytePattern(((bitField >> 24) & 3));
 
-            if (model.header.CI_T == null) {
+            if(model.header.CI_T == null) {
                 model.header.CI_T = UNDEFINED;
             }
-            if (model.header.TI_T == null) {
+            if(model.header.TI_T == null) {
                 model.header.TI_T = UNDEFINED;
             }
-            if (model.header.BI_T == null) {
+            if(model.header.BI_T == null) {
                 model.header.BI_T = UNDEFINED;
             }
-            if (model.header.SK_T == null) {
+            if(model.header.SK_T == null) {
                 model.header.SK_T = UNDEFINED;
             }
-            if (model.header.FC_T == null) {
+            if(model.header.FC_T == null) {
                 model.header.FC_T = UNDEFINED;
             }
-            if (model.header.HI_T == null) {
+            if(model.header.HI_T == null) {
                 model.header.HI_T = UNDEFINED;
             }
-            if (model.header.FI_T == null) {
+            if(model.header.FI_T == null) {
                 model.header.FI_T = UNDEFINED;
             }
 
             model.header.DumpBitField(logger);
 
-            while (fileData.position() < chunkSize) {
+            while(fileData.position() < chunkSize) {
                 String s = "";
                 char c;
                 do {
                     c = (char) fileData.get();
-                    if (c != '\0') {
+                    if(c != '\0') {
                         s += c;
                     }
-                } while (c != '\0');
+                } while(c != '\0');
 
                 model.header.stringTable.add(s);
             }
@@ -255,31 +259,32 @@ public class M3DJ {
                             "\tAuthor: " + model.header.author + "\n" +
                             "\tDescription: " + model.header.description
             );
-        } else {
+        }
+        else {
             logger.out(Tracelog.LogType.LOG_WARNING, "Bad data found. Failed to identify Header chunk where expected. Returning null object...");
             return null;
         }
 
-        if (model.header.VC_T.size > 4) {
+        if(model.header.VC_T.size > 4) {
             logger.out(Tracelog.LogType.LOG_WARNING, "Double precision coordinates are not supported, coordinates will be truncated to float...");
         }
 
-        if (model.header.VI_T.size > 4 || model.header.SI_T.size > 4 || model.header.VP_T.size == 4) {
+        if(model.header.VI_T.size > 4 || model.header.SI_T.size > 4 || model.header.VP_T.size == 4) {
             logger.out(Tracelog.LogType.LOG_ERROR, "Invalid index size, unable to load model. Returning null object...");
             return null;
         }
 
         int endChunkPosition = fileData.limit() - 4;
         magic = new StringBuilder();
-        for (int i = 0; i < MAGIC_LENGTH; i++) {
+        for(int i = 0; i < MAGIC_LENGTH; i++) {
             magic.append((char) (fileData.get(endChunkPosition + i)));
         }
-        if (!magic.toString().equals("OMD3")) {
+        if(!magic.toString().equals("OMD3")) {
             logger.out(Tracelog.LogType.LOG_ERROR, "Missing end chunk. Returning null object...");
             return null;
         }
 
-        if (model.header.NB_T.value > M3D_NUMBONE) {
+        if(model.header.NB_T.value > M3D_NUMBONE) {
             logger.out(Tracelog.LogType.LOG_ERROR, "Model has more bones per vertex than what importer was configured to support");
 
         }
@@ -287,14 +292,14 @@ public class M3DJ {
         int chunkEnd = 0;
         int i = 0;
 
-        while (fileData.hasRemaining()) {
+        while(fileData.hasRemaining()) {
             magic = new StringBuilder();
-            for (i = 0; i < MAGIC_LENGTH; i++) {
+            for(i = 0; i < MAGIC_LENGTH; i++) {
                 magic.append((char) (fileData.get()));
             }
 
             // OMD3 indicated the end of the file and does not have a size component.
-            if (!magic.toString().equals("OMD3")) {
+            if(!magic.toString().equals("OMD3")) {
                 // Chunk size includes the length of Magic and Integer value, so we have to account that
                 // we've already processed those bytes by subtracting them from the chunk size.
                 chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
@@ -304,13 +309,13 @@ public class M3DJ {
             // logger.out(Tracelog.LogType.LOG_DEBUG, "===");
             // logger.out(Tracelog.LogType.LOG_DEBUG, "Magic reads: " + magic);
 
-            switch (magic.toString()) {
+            switch(magic.toString()) {
                 case "CMAP":
-                    if (CMAP_Loaded) {
+                    if(CMAP_Loaded) {
                         logger.out(Tracelog.LogType.LOG_ERROR, "Additional color map chunk encountered. Color map chunk must be unique.");
                         continue;
                     }
-                    if (model.header.CI_T == UNDEFINED) {
+                    if(model.header.CI_T == UNDEFINED) {
                         logger.out(Tracelog.LogType.LOG_ERROR, "Encountered color map chunk while datatype is null.");
                         continue;
                     }
@@ -324,7 +329,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Colour unit size: " + colorSize + " bytes");
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
-                    while (fileData.position() < chunkEnd) {
+                    while(fileData.position() < chunkEnd) {
                         M3DJ_Color color = new M3DJ_Color();
                         color.r = Byte.toUnsignedInt(fileData.get());
                         color.g = Byte.toUnsignedInt(fileData.get());
@@ -339,11 +344,11 @@ public class M3DJ {
                     break;
 
                 case "TMAP":
-                    if (TMAP_Loaded) {
+                    if(TMAP_Loaded) {
                         logger.out(Tracelog.LogType.LOG_ERROR, "Additional texture map chunk encountered. Texture map chunk must be unique.");
                         continue;
                     }
-                    if (model.header.TI_T == UNDEFINED) {
+                    if(model.header.TI_T == UNDEFINED) {
                         logger.out(Tracelog.LogType.LOG_ERROR, "Encountered texture map chunk while datatype is null.");
                         continue;
                     }
@@ -358,8 +363,8 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Texture coordinate size: " + texCoordSize + " bytes");
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
-                    for (i = 0; i < numTexCoords; i++) {
-                        switch (model.header.VC_T) {
+                    for(i = 0; i < numTexCoords; i++) {
+                        switch(model.header.VC_T) {
                             case INT8 -> {
                                 float u = Byte.toUnsignedInt(fileData.get());
                                 float v = Byte.toUnsignedInt(fileData.get());
@@ -387,11 +392,11 @@ public class M3DJ {
                     break;
 
                 case "VRTS":
-                    if (VRTS_Loaded) {
+                    if(VRTS_Loaded) {
                         logger.out(Tracelog.LogType.LOG_ERROR, "Additional vertex data chunk encountered. Vertex data chunk must be unique.");
                         continue;
                     }
-                    if (model.header.CI_T != UNDEFINED && model.header.CI_T.size < 4 && !CMAP_Loaded) {
+                    if(model.header.CI_T != UNDEFINED && model.header.CI_T.size < 4 && !CMAP_Loaded) {
                         logger.out(Tracelog.LogType.LOG_WARNING, "No Color map loaded prior to vertex data. There may be issues with the model.");
                     }
                     VRTS_Loaded = true;
@@ -405,11 +410,11 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Texture coordinate size: " + vertexSize + " bytes");
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
-                    for (i = 0; i < numVertices; i++) {
+                    for(i = 0; i < numVertices; i++) {
                         M3DJ_Vertex vertex = new M3DJ_Vertex();
 
                         // Load vector component
-                        switch (model.header.VC_T) {
+                        switch(model.header.VC_T) {
                             case INT8 -> {
                                 vertex.x = (fileData.get() / 127.0);
                                 vertex.y = (fileData.get() / 127.0);
@@ -437,18 +442,20 @@ public class M3DJ {
                         }
 
                         // Load colour index component
-                        switch (model.header.CI_T) {
+                        switch(model.header.CI_T) {
                             case UINT8 -> {
-                                if (!model.colors.isEmpty()) {
+                                if(!model.colors.isEmpty()) {
                                     vertex.colorIndex = fileData.get();
-                                } else {
+                                }
+                                else {
                                     vertex.colorIndex = 0;
                                 }
                             }
                             case UINT16 -> {
-                                if (!model.colors.isEmpty()) {
+                                if(!model.colors.isEmpty()) {
                                     vertex.colorIndex = fileData.getShort();
-                                } else {
+                                }
+                                else {
                                     vertex.colorIndex = 0;
                                 }
                             }
@@ -467,15 +474,15 @@ public class M3DJ {
                     break;
 
                 case "BONE":
-                    if (BONE_Loaded) {
+                    if(BONE_Loaded) {
                         logger.out(Tracelog.LogType.LOG_ERROR, "Additional bone data chunk encountered. Bone data chunk must be unique.");
                         continue;
                     }
-                    if (model.header.BI_T == UNDEFINED) {
+                    if(model.header.BI_T == UNDEFINED) {
                         logger.out(Tracelog.LogType.LOG_ERROR, "Encountered bone data chunk while datatype is null.");
                         continue;
                     }
-                    if (!VRTS_Loaded) {
+                    if(!VRTS_Loaded) {
                         logger.out(Tracelog.LogType.LOG_ERROR, "No vertex data was loaded prior to bone data.");
                         break;
                     }
@@ -490,7 +497,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected number of skin records: " + skinCount);
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
-                    for (i = 0; fileData.position() < chunkEnd && i < boneCount; i++) {
+                    for(i = 0; fileData.position() < chunkEnd && i < boneCount; i++) {
                         M3DJ_Bone bone = new M3DJ_Bone();
                         bone.parentIndex = GetIndex(fileData, model.header.BI_T.size);
                         bone.name = GetString(fileData, model.header.SI_T.size);
@@ -500,23 +507,23 @@ public class M3DJ {
                         model.bones.add(bone);
                     }
 
-                    if (i != boneCount) {
+                    if(i != boneCount) {
                         logger.out(Tracelog.LogType.LOG_ERROR, "Malformed Bone Chunk. Expected bone count: "
                                 + boneCount + ". Number of bones parsed: " + i);
                         return null;
                     }
 
-                    if (skinCount > 0) {
-                        for (i = 0; fileData.position() < chunkEnd && i < skinCount; i++) {
+                    if(skinCount > 0) {
+                        for(i = 0; fileData.position() < chunkEnd && i < skinCount; i++) {
                             M3DJ_Skin skin = new M3DJ_Skin();
                             float[] weights = new float[M3D_NUMBONE];
 
-                            for (int j = 0; j < M3D_NUMBONE; j++) {
+                            for(int j = 0; j < M3D_NUMBONE; j++) {
                                 skin.boneIds[j] = M3D_UNDEF;
                                 skin.weights[j] = 0.0f;
                             }
 
-                            if (model.header.NB_T.value == 1) {
+                            if(model.header.NB_T.value == 1) {
                                 weights[0] = 255.0f;
                             }
                             else {
@@ -527,9 +534,9 @@ public class M3DJ {
                             }
 
                             float w = 0.0f;
-                            for (int j = 0; j < model.header.NB_T.value; j++) {
-                                if (weights[j] != 0.0f) {
-                                    if (j >= M3D_NUMBONE) {
+                            for(int j = 0; j < model.header.NB_T.value; j++) {
+                                if(weights[j] != 0.0f) {
+                                    if(j >= M3D_NUMBONE) {
                                         GetIndex(fileData, model.header.NB_T.value);
                                     }
                                     else {
@@ -540,8 +547,8 @@ public class M3DJ {
                                 }
                             }
 
-                            if (w != 1.0f && w != 0.0f) {
-                                for (int j = 0; j < M3D_NUMBONE; j++) {
+                            if(w != 1.0f && w != 0.0f) {
+                                for(int j = 0; j < M3D_NUMBONE; j++) {
                                     skin.weights[j] = skin.weights[j] / w;
                                 }
                             }
@@ -549,7 +556,7 @@ public class M3DJ {
                             model.skins.add(skin);
                         }
 
-                        if (i != skinCount) {
+                        if(i != skinCount) {
                             logger.out(Tracelog.LogType.LOG_ERROR, "Malformed Skin within Bone Chunk. Expected skin count: "
                                     + skinCount + ". Number of skins parsed: " + i);
                             return null;
@@ -567,24 +574,24 @@ public class M3DJ {
 
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Material name: " + material.name);
 
-                    for (M3DJ_Material mat : model.materials) {
-                        if (mat.name.equals(material.name)) {
+                    for(M3DJ_Material mat : model.materials) {
+                        if(mat.name.equals(material.name)) {
                             logger.out(Tracelog.LogType.LOG_ERROR, "Multiple definitions for material " + material.name + ".");
                             break;
                         }
                     }
 
-                    while (fileData.position() < chunkEnd) {
+                    while(fileData.position() < chunkEnd) {
                         M3DJ_Property property = new M3DJ_Property();
 
                         byte propValue = fileData.get();
 
-                        if (Byte.toUnsignedInt(propValue) >= 128) {
+                        if(Byte.toUnsignedInt(propValue) >= 128) {
                             property.format = PropertyFormat.MAP;
                         }
                         else {
-                            for (int j = 0; j < propertyTypes.length; j++) {
-                                if (propValue == propertyTypes[j].id) {
+                            for(int j = 0; j < propertyTypes.length; j++) {
+                                if(propValue == propertyTypes[j].id) {
                                     property.format = propertyTypes[j].format;
                                     property.key = propertyTypes[j].key;
                                     property.id = propertyTypes[j].id;
@@ -593,11 +600,11 @@ public class M3DJ {
                             }
                         }
 
-                        switch (property.format) {
+                        switch(property.format) {
                             case COLOR:
-                                switch (model.header.CI_T) {
+                                switch(model.header.CI_T) {
                                     case UINT8:
-                                        if (!model.colors.isEmpty()) {
+                                        if(!model.colors.isEmpty()) {
                                             property.SetPropertyValue((int) fileData.get());
                                         }
                                         else {
@@ -606,7 +613,7 @@ public class M3DJ {
                                         }
                                         break;
                                     case UINT16:
-                                        if (!model.colors.isEmpty()) {
+                                        if(!model.colors.isEmpty()) {
                                             property.SetPropertyValue(fileData.getShort());
                                         }
                                         else {
@@ -615,7 +622,7 @@ public class M3DJ {
                                         }
                                         break;
                                     case UINT32:
-                                        if (!model.colors.isEmpty()) {
+                                        if(!model.colors.isEmpty()) {
                                             property.SetPropertyValue(fileData.getInt());
                                         }
                                         else {
@@ -659,14 +666,14 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (i = 0; i < chunkSize; i++) {
+                    for(i = 0; i < chunkSize; i++) {
                         // todo: load procedural surfaces
                         fileData.get();
                     }
                     break;
 
                 case "MESH":
-                    if (!VRTS_Loaded) {
+                    if(!VRTS_Loaded) {
                         logger.out(Tracelog.LogType.LOG_ERROR, "No vertex data loaded prior to mesh data.");
                     }
 
@@ -677,7 +684,7 @@ public class M3DJ {
                     int materialIndex = M3D_UNDEF;
                     int parameterIndex = M3D_UNDEF;
 
-                    while (fileData.position() < chunkEnd) {
+                    while(fileData.position() < chunkEnd) {
                         byte recordMagic = fileData.get();
                         byte n = (byte) (recordMagic >> 4);
                         byte k = (byte) (recordMagic & 15);
@@ -686,32 +693,32 @@ public class M3DJ {
                         logger.out(Tracelog.LogType.LOG_DEBUG, "n magic: " + n);
                         logger.out(Tracelog.LogType.LOG_DEBUG, "k magic: " + k);
 
-                        if (n == 0) {
-                            if (k == 0) {
+                        if(n == 0) {
+                            if(k == 0) {
                                 String name = GetString(fileData, model.header.SI_T.size);
-                                if (!name.isEmpty()) {
-                                    for (i = 0; i < model.materials.size(); i++) {
-                                        if (name.equals(model.materials.get(i).name)) {
+                                if(!name.isEmpty()) {
+                                    for(i = 0; i < model.materials.size(); i++) {
+                                        if(name.equals(model.materials.get(i).name)) {
                                             materialIndex = i;
                                             break;
                                         }
                                     }
-                                    if (materialIndex == M3D_UNDEF) {
+                                    if(materialIndex == M3D_UNDEF) {
                                         logger.out(Tracelog.LogType.LOG_ERROR, "Model references unknown material: " + name + ".");
                                     }
                                 }
                             }
                             else {
                                 String name = GetString(fileData, model.header.SI_T.size);
-                                if (processVertexMax) {
-                                    if (!name.isEmpty()) {
-                                        for (i = 0; i < model.parameters.size(); i++) {
-                                            if (name.equals(model.parameters.get(i).name)) {
+                                if(processVertexMax) {
+                                    if(!name.isEmpty()) {
+                                        for(i = 0; i < model.parameters.size(); i++) {
+                                            if(name.equals(model.parameters.get(i).name)) {
                                                 parameterIndex = i;
                                                 break;
                                             }
                                         }
-                                        if (parameterIndex == M3D_UNDEF) {
+                                        if(parameterIndex == M3D_UNDEF) {
                                             M3DJ_Parameter p = new M3DJ_Parameter();
                                             p.name = name;
                                             p.count = 0;
@@ -724,7 +731,7 @@ public class M3DJ {
                             continue;
                         }
 
-                        if (n != 3) {
+                        if(n != 3) {
                             logger.out(Tracelog.LogType.LOG_ERROR, "Only triangle meshes are supported by M3D SDK at this time. Returning null object...");
                             return null;
                         }
@@ -734,19 +741,19 @@ public class M3DJ {
                         face.paramId = parameterIndex;
 
                         int j;
-                        for (j = 0; fileData.position() < chunkEnd && j < n; j++) {
+                        for(j = 0; fileData.position() < chunkEnd && j < n; j++) {
                             face.vertices[j] = GetIndex(fileData, model.header.VI_T.size);
 
-                            if ((k & 1) != 0) {
+                            if((k & 1) != 0) {
                                 face.texCoords[j] = GetIndex(fileData, model.header.TI_T.size);
                             }
 
-                            if ((k & 2) != 0) {
+                            if((k & 2) != 0) {
                                 face.normals[j] = GetIndex(fileData, model.header.VI_T.size);
                             }
 
-                            if ((k & 4) != 0) {
-                                if (processVertexMax) {
+                            if((k & 4) != 0) {
+                                if(processVertexMax) {
                                     face.vertMax[j] = GetIndex(fileData, model.header.VI_T.size);
                                 }
                                 else {
@@ -754,7 +761,7 @@ public class M3DJ {
                                 }
                             }
                         }
-                        if (j != n) {
+                        if(j != n) {
                             logger.out(Tracelog.LogType.LOG_ERROR, "Invalid mesh found. Returning null object...");
                             return null;
                         }
@@ -766,7 +773,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (i = 0; i < chunkSize; i++) {
+                    for(i = 0; i < chunkSize; i++) {
                         // todo: load shapes
                         fileData.get();
                     }
@@ -778,7 +785,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (i = 0; i < chunkSize; i++) {
+                    for(i = 0; i < chunkSize; i++) {
                         // todo: load voxel types
                         fileData.get();
                     }
@@ -788,7 +795,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (i = 0; i < chunkSize; i++) {
+                    for(i = 0; i < chunkSize; i++) {
                         // todo: load voxel data
                         fileData.get();
                     }
@@ -798,7 +805,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (i = 0; i < chunkSize; i++) {
+                    for(i = 0; i < chunkSize; i++) {
                         // todo: load animation labels
                         fileData.get();
                     }
@@ -808,7 +815,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (i = 0; i < chunkSize; i++) {
+                    for(i = 0; i < chunkSize; i++) {
                         // todo: load actions and animations
                         fileData.get();
                     }
@@ -818,7 +825,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (i = 0; i < chunkSize; i++) {
+                    for(i = 0; i < chunkSize; i++) {
                         // todo: load assets
                         fileData.get();
                     }
@@ -831,14 +838,14 @@ public class M3DJ {
                     return model;
 
                 default:
-                    if (!processExtras) {
+                    if(!processExtras) {
                         // logger.out(Tracelog.LogType.LOG_WARNING, "Unexpected magic value encountered:" +
                         //         "\n\t" + magic + " at position " + fileData.position() + ". Attempting to skip and continue parsing...");
                     }
                     else {
                         logger.out(Tracelog.LogType.LOG_INFO, "Nonstandard magic value encountered:" + magic + " Evaluating as an extra");
                         M3DJ_Extra extra = new M3DJ_Extra(magic.toString(), chunkSize);
-                        while (fileData.position() < chunkEnd) {
+                        while(fileData.position() < chunkEnd) {
                             extra.data.put(fileData.get());
                         }
                         extra.data.flip();
@@ -856,12 +863,13 @@ public class M3DJ {
 
     /**
      * Returns value from data buffer based on index size.
-     * @param fileData File data to fetch value from. File Data will be advanced by number of bytes passed.
+     *
+     * @param fileData  File data to fetch value from. File Data will be advanced by number of bytes passed.
      * @param indexSize Size (in bytes) of the value to be fetched.
      * @return Value of next byte(s) within the data buffer cast to int.
      */
     private int GetIndex(ByteBuffer fileData, int indexSize) {
-        return switch (indexSize) {
+        return switch(indexSize) {
             case 1 -> fileData.get();
             case 2 -> fileData.getShort();
             case 4 -> fileData.getInt();
@@ -871,7 +879,8 @@ public class M3DJ {
 
     /**
      * Retrieves a string from the provided data buffer at the start of the string table + offset.
-     * @param fileData File data buffer to fetch data from .
+     *
+     * @param fileData     File data buffer to fetch data from .
      * @param stringOffset Location within the file's string table to begin reading.
      * @return String from stringOffset to next NULL terminator (\0).
      */
@@ -884,10 +893,10 @@ public class M3DJ {
         do {
             c = (char) fileData.get(16 + offset);
             offset++;
-            if (c != '\0') {
+            if(c != '\0') {
                 s += c;
             }
-        } while (c != '\0');
+        } while(c != '\0');
 
         fileData.position(position + stringOffset);
         return s;
@@ -895,6 +904,7 @@ public class M3DJ {
 
     /**
      * Decompressed binary data using Z-LIB compression schema.
+     *
      * @param compressedData Z-LIB compressed binary data.
      * @return Uncompressed/Inflated data buffer.
      */
@@ -906,11 +916,11 @@ public class M3DJ {
         byte[] buffer = new byte[1024];
 
         try {
-            while (inflater.getRemaining() > 0) {
+            while(inflater.getRemaining() > 0) {
                 int decompressedSize = inflater.inflate(buffer);
                 outputStream.write(buffer, 0, decompressedSize);
             }
-        } catch (DataFormatException e) {
+        } catch(DataFormatException e) {
             throw new RuntimeException(e);
         } finally {
             inflater.end();
@@ -926,7 +936,8 @@ public class M3DJ {
 
     /**
      * Write model specifics to evaluate how the parser is reading the provided model.
-     * @param model Parsed model to write.
+     *
+     * @param model    Parsed model to write.
      * @param filePath Nullable. Writes output to filepath provided. If null, output is set to console.
      * @throws IOException If file fails to write to disk.
      */
@@ -951,43 +962,43 @@ public class M3DJ {
         // Header Metadata
         output.append(
                 "\tName: " + model.header.title + "\n" +
-                "\tLicense: " + model.header.licence + "\n" +
-                "\tAuthor: " + model.header.author + "\n" +
-                "\tDescription: " + model.header.description + "\n" +
-                "\tScale: " + model.header.scale + "\n" +
-                "\n"
+                        "\tLicense: " + model.header.licence + "\n" +
+                        "\tAuthor: " + model.header.author + "\n" +
+                        "\tDescription: " + model.header.description + "\n" +
+                        "\tScale: " + model.header.scale + "\n" +
+                        "\n"
         );
 
         // Model Information
         output.append(
-          "\tColor map size: " + model.colors.size() + "\n" +
-          "\tTexture map size: " + model.textureMap.size() + "\n" +
-          //"\tNumber of textures: " + model.textures.size() + "\n  +
-          "\tTexture loading not implemented...\n" +
-          "\tNumber of bones: " + model.bones.size() + "\n" +
-          "\tNumber of vertices: " + model.vertices.size() + "\n" +
-          "\tNumber of skins: " + model.skins.size() + "\n" +
-          "\tNumber of materials: " + model.materials.size() + "\n" +
-          "\tNumber of faces: " + model.faces.size() + "\n" +
-          // "\tNumber of Voxel Types: " + model.voxels.size() + "\n" +
-          "\tVoxels not implemented...\n" +
-          // "\tNumber of Voxels: " + model.colors.size() + "\n" +
-          "\tVoxels not implemented...\n" +
-          // "\tNumber of Shapes: " + model.colors.size() + "\n" +
-          "\tShapes not implemented...\n" +
-          // "\tNumber of Labels: " + model.colors.size() + "\n" +
-          "\tLabels not implemented...\n" +
-          // "\tNumber of Actions: " + model.colors.size() + "\n" +
-          "\tActions not implemented...\n" +
-          // "\tNumber of Inlined Assets: " + model.colors.size() + "\n" +
-          "\tInline Assets not implemented...\n" +
-          "\tNumber of Extra Parameters: " + model.extras.size() + "\n" +
-          "\tPreview available?: " + model.preview.hasPreview + "\n" +
-          "}\n\n"
+                "\tColor map size: " + model.colors.size() + "\n" +
+                        "\tTexture map size: " + model.textureMap.size() + "\n" +
+                        //"\tNumber of textures: " + model.textures.size() + "\n  +
+                        "\tTexture loading not implemented...\n" +
+                        "\tNumber of bones: " + model.bones.size() + "\n" +
+                        "\tNumber of vertices: " + model.vertices.size() + "\n" +
+                        "\tNumber of skins: " + model.skins.size() + "\n" +
+                        "\tNumber of materials: " + model.materials.size() + "\n" +
+                        "\tNumber of faces: " + model.faces.size() + "\n" +
+                        // "\tNumber of Voxel Types: " + model.voxels.size() + "\n" +
+                        "\tVoxels not implemented...\n" +
+                        // "\tNumber of Voxels: " + model.colors.size() + "\n" +
+                        "\tVoxels not implemented...\n" +
+                        // "\tNumber of Shapes: " + model.colors.size() + "\n" +
+                        "\tShapes not implemented...\n" +
+                        // "\tNumber of Labels: " + model.colors.size() + "\n" +
+                        "\tLabels not implemented...\n" +
+                        // "\tNumber of Actions: " + model.colors.size() + "\n" +
+                        "\tActions not implemented...\n" +
+                        // "\tNumber of Inlined Assets: " + model.colors.size() + "\n" +
+                        "\tInline Assets not implemented...\n" +
+                        "\tNumber of Extra Parameters: " + model.extras.size() + "\n" +
+                        "\tPreview available?: " + model.preview.hasPreview + "\n" +
+                        "}\n\n"
         );
 
         // Color map
-        if (!model.colors.isEmpty()) {
+        if(!model.colors.isEmpty()) {
             output.append("model.colors = {\n");
             for(M3DJ_Color color : model.colors) {
                 output.append("\t{ " +
@@ -1001,7 +1012,7 @@ public class M3DJ {
         }
 
         // Texture Map
-        if (!model.textureMap.isEmpty()) {
+        if(!model.textureMap.isEmpty()) {
             output.append("model.textureMap = {\n");
             for(M3DJ_TextureCoordinate textureCoordinate : model.textureMap) {
                 output.append("\t{ " +
@@ -1013,7 +1024,7 @@ public class M3DJ {
         }
 
         // Vertices
-        if (!model.vertices.isEmpty()) {
+        if(!model.vertices.isEmpty()) {
             output.append("model.vertices = {\n");
             for(M3DJ_Vertex vertex : model.vertices) {
                 output.append("\t{ " +
@@ -1029,26 +1040,26 @@ public class M3DJ {
         }
 
         // Faces
-        if (!model.faces.isEmpty()) {
+        if(!model.faces.isEmpty()) {
             output.append("model.faces = {\n");
             for(M3DJ_Face face : model.faces) {
                 output.append("\t{ " +
                         "Material ID: " + face.materialId + ", " +
                         "Parameter ID: " + face.paramId + ", "
                 );
-                output.append("Vertex = { " + face.vertices[0]+ ", " + face.vertices[1]+ ", " + face.vertices[2] + " }, ");
-                output.append("Vertex Maximum = { " + face.vertMax[0]+ ", " + face.vertMax[1]+ ", " + face.vertMax[2] + " }, ");
-                output.append("Vertex Normal = { " + face.normals[0]+ ", " + face.normals[1]+ ", " + face.normals[2] + " }, ");
-                output.append("Vertex Texture Coordinate = { " + face.texCoords[0]+ ", " + face.texCoords[1]+ ", " + face.texCoords[2]+ " }, ");
+                output.append("Vertex = { " + face.vertices[0] + ", " + face.vertices[1] + ", " + face.vertices[2] + " }, ");
+                output.append("Vertex Maximum = { " + face.vertMax[0] + ", " + face.vertMax[1] + ", " + face.vertMax[2] + " }, ");
+                output.append("Vertex Normal = { " + face.normals[0] + ", " + face.normals[1] + ", " + face.normals[2] + " }, ");
+                output.append("Vertex Texture Coordinate = { " + face.texCoords[0] + ", " + face.texCoords[1] + ", " + face.texCoords[2] + " }, ");
                 output.append(" }\n");
             }
             output.append("}\n");
         }
 
         //Bones
-        if (!model.bones.isEmpty()) {
+        if(!model.bones.isEmpty()) {
             output.append("model.bones = {\n");
-            for (M3DJ_Bone bone : model.bones) {
+            for(M3DJ_Bone bone : model.bones) {
                 output.append("\t{ ");
                 output.append("parent: " + bone.parentIndex + ", ");
                 output.append("name: " + bone.name + ", ");
@@ -1059,27 +1070,27 @@ public class M3DJ {
         }
 
         // Skins
-        if (!model.skins.isEmpty()) {
+        if(!model.skins.isEmpty()) {
             output.append("model.skins = {\n");
-            for (M3DJ_Skin skin : model.skins) {
+            for(M3DJ_Skin skin : model.skins) {
                 output.append("\t{ ");
                 output.append("Bone IDs = { " + skin.boneIds[0] + ", " + skin.boneIds[1] + ", " + skin.boneIds[2] + ", " + skin.boneIds[3] + " }, ");
-                output.append("Weights = { " + skin.weights[0]+ ", " + skin.weights[1]+ ", " + skin.weights[2] + ", " + skin.weights[3]  + " }, ");
+                output.append("Weights = { " + skin.weights[0] + ", " + skin.weights[1] + ", " + skin.weights[2] + ", " + skin.weights[3] + " }, ");
                 output.append("}\n");
             }
             output.append("}\n");
         }
 
         // Materials
-        if (!model.materials.isEmpty()) {
+        if(!model.materials.isEmpty()) {
             output.append("model.materials = {\n");
             int i = 0;
-            for (M3DJ_Material material : model.materials) {
+            for(M3DJ_Material material : model.materials) {
                 output.append("\t" + i + " = { " + "\n");
                 output.append("\t\tName: " + material.name + "\n");
                 output.append("\t\tNumber of Properties: " + material.properties.size() + "\n");
                 output.append("\t\tProperties = {\n");
-                for (M3DJ_Property property : material.properties) {
+                for(M3DJ_Property property : material.properties) {
                     output.append("\t\t\t{ ");
                     output.append("Type: " + property.id + ", ");
                     output.append("Key: " + property.key + ", ");
@@ -1099,12 +1110,12 @@ public class M3DJ {
         }
 
         // Extras
-        if (!model.extras.isEmpty()) {
+        if(!model.extras.isEmpty()) {
             output.append("model.extras = {\n");
-            for (M3DJ_Extra extra : model.extras) {
+            for(M3DJ_Extra extra : model.extras) {
                 output.append("\t{ key: " + extra.key + ", ");
                 output.append("data: ");
-                while (extra.data.hasRemaining()) {
+                while(extra.data.hasRemaining()) {
                     output.append(extra.data.get() + ", ");
                 }
                 output.append(" },\n");
@@ -1112,25 +1123,25 @@ public class M3DJ {
             output.append("}\n");
         }
 
-        if (filePath == null) {
+        if(filePath == null) {
             System.out.println(output);
         }
         else {
             Path path = Paths.get(filePath);
 
-            if (!path.toFile().exists()){
-                try{
+            if(!path.toFile().exists()) {
+                try {
                     Files.write(path, Collections.singleton(output.toString()));
-                } catch (IOException exception){
+                } catch(IOException exception) {
                     logger.out(Tracelog.LogType.LOG_WARNING, "Failed to write file " + filePath);
                     throw exception;
                 }
             }
-            else{
+            else {
                 logger.out(Tracelog.LogType.LOG_INFO, "FILEIO: Overwriting file " + filePath);
-                try{
+                try {
                     Files.write(path, Collections.singleton(output.toString()));
-                } catch (IOException exception){
+                } catch(IOException exception) {
                     logger.out(Tracelog.LogType.LOG_WARNING, "Failed to write file " + filePath);
                     throw exception;
                 }
