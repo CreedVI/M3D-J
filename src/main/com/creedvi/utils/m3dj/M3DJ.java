@@ -57,7 +57,7 @@ public class M3DJ {
 
 
     /**
-     * Set to configure the parser to evaluate vertex maximums.
+     * Configure the parser to evaluate vertex maximums.
      * Default is disabled.
      *
      * @param b true enables maximum parsing; false disables maximum parsing.
@@ -66,6 +66,13 @@ public class M3DJ {
         processVertexMax = b;
     }
 
+
+    /**
+     * Configures the parser to Extras as defined in the M3D specification.
+     * Default is disabled.
+     *
+     * @param b true enables Extras parsing; false disables Extras parsing.
+     */
     public void ProcessExtras(boolean b) {
         processExtras = b;
     }
@@ -74,7 +81,7 @@ public class M3DJ {
      * Loads a 3D model from an M3D format file (.m3d, .a3d).
      *
      * @param fileName String path to the file location.
-     * @return M3DJ object of the model specified by the given file.
+     * @return M3DJ object of the model specified by the given file. NULL in case where m3d model is not formatted properly.
      * @throws IOException if the file fails to load into memory.
      */
     public M3DJ_Model LoadFile(String fileName) throws IOException {
@@ -115,6 +122,11 @@ public class M3DJ {
         return result;
     }
 
+    /**
+     * Parses model information from valid ASCII encoded M3D file
+     * @param fileData binary data of ASCII file
+     * @return M3D Model defined by file.
+     */
     private M3DJ_Model M3DJ_LoadAscii(ByteBuffer fileData) {
         M3DJ_Model result = new M3DJ_Model();
 
@@ -125,6 +137,12 @@ public class M3DJ {
         return null;
     }
 
+
+    /**
+     * Parses model information from valid Binary encoded M3D file
+     * @param fileData binary data of M3D model
+     * @return M3D Model defined by file.
+     */
     private M3DJ_Model M3DJ_LoadBinary(ByteBuffer fileData) {
         M3DJ_Model model = new M3DJ_Model();
         int chunkSize;
@@ -267,10 +285,11 @@ public class M3DJ {
         }
 
         int chunkEnd = 0;
+        int i = 0;
 
         while (fileData.hasRemaining()) {
             magic = new StringBuilder();
-            for (int i = 0; i < MAGIC_LENGTH; i++) {
+            for (i = 0; i < MAGIC_LENGTH; i++) {
                 magic.append((char) (fileData.get()));
             }
 
@@ -282,8 +301,8 @@ public class M3DJ {
                 chunkEnd = fileData.position() + chunkSize;
             }
 
-            logger.out(Tracelog.LogType.LOG_DEBUG, "===");
-            logger.out(Tracelog.LogType.LOG_DEBUG, "Magic reads: " + magic);
+            // logger.out(Tracelog.LogType.LOG_DEBUG, "===");
+            // logger.out(Tracelog.LogType.LOG_DEBUG, "Magic reads: " + magic);
 
             switch (magic.toString()) {
                 case "CMAP":
@@ -339,7 +358,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Texture coordinate size: " + texCoordSize + " bytes");
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
-                    for (int i = 0; i < numTexCoords; i++) {
+                    for (i = 0; i < numTexCoords; i++) {
                         switch (model.header.VC_T) {
                             case INT8 -> {
                                 float u = Byte.toUnsignedInt(fileData.get());
@@ -386,7 +405,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Texture coordinate size: " + vertexSize + " bytes");
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
-                    for (int i = 0; i < numVertices; i++) {
+                    for (i = 0; i < numVertices; i++) {
                         M3DJ_Vertex vertex = new M3DJ_Vertex();
 
                         // Load vector component
@@ -462,12 +481,79 @@ public class M3DJ {
                     }
                     BONE_Loaded = true;
 
+                    int boneCount = GetIndex(fileData, model.header.BI_T.size);
+                    int skinCount = GetIndex(fileData, model.header.SK_T.size);
+
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected number of bone records: " + boneCount);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected number of skin records: " + skinCount);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
-                    for (int i = 0; i < chunkSize; i++) {
-                        // todo: load bones
-                        fileData.get();
+                    for (i = 0; fileData.position() < chunkEnd && i < boneCount; i++) {
+                        M3DJ_Bone bone = new M3DJ_Bone();
+                        bone.parentIndex = GetIndex(fileData, model.header.BI_T.size);
+                        bone.name = GetString(fileData, model.header.SI_T.size);
+                        bone.position = GetIndex(fileData, model.header.VI_T.size);
+                        bone.orientation = GetIndex(fileData, model.header.VI_T.size);
+
+                        model.bones.add(bone);
+                    }
+
+                    if (i != boneCount) {
+                        logger.out(Tracelog.LogType.LOG_ERROR, "Malformed Bone Chunk. Expected bone count: "
+                                + boneCount + ". Number of bones parsed: " + i);
+                        return null;
+                    }
+
+                    if (skinCount > 0) {
+                        for (i = 0; fileData.position() < chunkEnd && i < skinCount; i++) {
+                            M3DJ_Skin skin = new M3DJ_Skin();
+                            float[] weights = new float[M3D_NUMBONE];
+
+                            for (int j = 0; j < M3D_NUMBONE; j++) {
+                                skin.boneIds[j] = M3D_UNDEF;
+                                skin.weights[j] = 0.0f;
+                            }
+
+                            if (model.header.NB_T.value == 1) {
+                                weights[0] = 255.0f;
+                            }
+                            else {
+                                weights[0] = fileData.get();
+                                weights[1] = fileData.get();
+                                weights[2] = fileData.get();
+                                weights[3] = fileData.get();
+                            }
+
+                            float w = 0.0f;
+                            for (int j = 0; j < model.header.NB_T.value; j++) {
+                                if (weights[j] != 0.0f) {
+                                    if (j >= M3D_NUMBONE) {
+                                        GetIndex(fileData, model.header.NB_T.value);
+                                    }
+                                    else {
+                                        skin.weights[j] = weights[j] / 255.0f;
+                                        w += skin.weights[j];
+                                        skin.boneIds[j] = GetIndex(fileData, model.header.BI_T.size);
+                                    }
+                                }
+                            }
+
+                            if (w != 1.0f && w != 0.0f) {
+                                for (int j = 0; j < M3D_NUMBONE; j++) {
+                                    skin.weights[j] = skin.weights[j] / w;
+                                }
+                            }
+
+                            model.skins.add(skin);
+                        }
+
+                        if (i != skinCount) {
+                            logger.out(Tracelog.LogType.LOG_ERROR, "Malformed Skin within Bone Chunk. Expected skin count: "
+                                    + skinCount + ". Number of skins parsed: " + i);
+                            return null;
+                        }
                     }
                     break;
 
@@ -492,7 +578,6 @@ public class M3DJ {
                         M3DJ_Property property = new M3DJ_Property();
 
                         byte propValue = fileData.get();
-                        System.out.println(Byte.toUnsignedInt(propValue));
 
                         if (Byte.toUnsignedInt(propValue) >= 128) {
                             property.format = PropertyFormat.MAP;
@@ -574,7 +659,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (int i = 0; i < chunkSize; i++) {
+                    for (i = 0; i < chunkSize; i++) {
                         // todo: load procedural surfaces
                         fileData.get();
                     }
@@ -605,7 +690,7 @@ public class M3DJ {
                             if (k == 0) {
                                 String name = GetString(fileData, model.header.SI_T.size);
                                 if (!name.isEmpty()) {
-                                    for (int i = 0; i < model.materials.size(); i++) {
+                                    for (i = 0; i < model.materials.size(); i++) {
                                         if (name.equals(model.materials.get(i).name)) {
                                             materialIndex = i;
                                             break;
@@ -620,7 +705,7 @@ public class M3DJ {
                                 String name = GetString(fileData, model.header.SI_T.size);
                                 if (processVertexMax) {
                                     if (!name.isEmpty()) {
-                                        for (int i = 0; i < model.parameters.size(); i++) {
+                                        for (i = 0; i < model.parameters.size(); i++) {
                                             if (name.equals(model.parameters.get(i).name)) {
                                                 parameterIndex = i;
                                                 break;
@@ -681,7 +766,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (int i = 0; i < chunkSize; i++) {
+                    for (i = 0; i < chunkSize; i++) {
                         // todo: load shapes
                         fileData.get();
                     }
@@ -693,7 +778,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (int i = 0; i < chunkSize; i++) {
+                    for (i = 0; i < chunkSize; i++) {
                         // todo: load voxel types
                         fileData.get();
                     }
@@ -703,7 +788,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (int i = 0; i < chunkSize; i++) {
+                    for (i = 0; i < chunkSize; i++) {
                         // todo: load voxel data
                         fileData.get();
                     }
@@ -713,7 +798,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (int i = 0; i < chunkSize; i++) {
+                    for (i = 0; i < chunkSize; i++) {
                         // todo: load animation labels
                         fileData.get();
                     }
@@ -723,7 +808,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (int i = 0; i < chunkSize; i++) {
+                    for (i = 0; i < chunkSize; i++) {
                         // todo: load actions and animations
                         fileData.get();
                     }
@@ -733,7 +818,7 @@ public class M3DJ {
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for (int i = 0; i < chunkSize; i++) {
+                    for (i = 0; i < chunkSize; i++) {
                         // todo: load assets
                         fileData.get();
                     }
@@ -747,11 +832,17 @@ public class M3DJ {
 
                 default:
                     if (!processExtras) {
-                        logger.out(Tracelog.LogType.LOG_WARNING, "Unexpected magic value encountered:" +
-                                "\n\t" + magic + " at position " + fileData.position() + ". Attempting to skip and continue parsing...");
+                        // logger.out(Tracelog.LogType.LOG_WARNING, "Unexpected magic value encountered:" +
+                        //         "\n\t" + magic + " at position " + fileData.position() + ". Attempting to skip and continue parsing...");
                     }
                     else {
                         logger.out(Tracelog.LogType.LOG_INFO, "Nonstandard magic value encountered:" + magic + " Evaluating as an extra");
+                        M3DJ_Extra extra = new M3DJ_Extra(magic.toString(), chunkSize);
+                        while (fileData.position() < chunkEnd) {
+                            extra.data.put(fileData.get());
+                        }
+                        extra.data.flip();
+                        model.extras.add(extra);
                     }
                     break;
             }
@@ -763,6 +854,12 @@ public class M3DJ {
         return null;
     }
 
+    /**
+     * Returns value from data buffer based on index size.
+     * @param fileData File data to fetch value from. File Data will be advanced by number of bytes passed.
+     * @param indexSize Size (in bytes) of the value to be fetched.
+     * @return Value of next byte(s) within the data buffer cast to int.
+     */
     private int GetIndex(ByteBuffer fileData, int indexSize) {
         return switch (indexSize) {
             case 1 -> fileData.get();
@@ -772,6 +869,12 @@ public class M3DJ {
         };
     }
 
+    /**
+     * Retrieves a string from the provided data buffer at the start of the string table + offset.
+     * @param fileData File data buffer to fetch data from .
+     * @param stringOffset Location within the file's string table to begin reading.
+     * @return String from stringOffset to next NULL terminator (\0).
+     */
     private String GetString(ByteBuffer fileData, int stringOffset) {
         int position = fileData.position();
         int offset = GetIndex(fileData, stringOffset);
@@ -790,6 +893,11 @@ public class M3DJ {
         return s;
     }
 
+    /**
+     * Decompressed binary data using Z-LIB compression schema.
+     * @param compressedData Z-LIB compressed binary data.
+     * @return Uncompressed/Inflated data buffer.
+     */
     private ByteBuffer DecompressDataBuffer(ByteBuffer compressedData) {
         Inflater inflater = new Inflater();
         inflater.setInput(compressedData);
@@ -816,6 +924,12 @@ public class M3DJ {
         return result;
     }
 
+    /**
+     * Write model specifics to evaluate how the parser is reading the provided model.
+     * @param model Parsed model to write.
+     * @param filePath Nullable. Writes output to filepath provided. If null, output is set to console.
+     * @throws IOException If file fails to write to disk.
+     */
     public void DumpModel(M3DJ_Model model, String filePath) throws IOException {
         StringBuilder output = new StringBuilder();
         // Header Bitfield
@@ -867,8 +981,7 @@ public class M3DJ {
           "\tActions not implemented...\n" +
           // "\tNumber of Inlined Assets: " + model.colors.size() + "\n" +
           "\tInline Assets not implemented...\n" +
-          // "\tNumber of Extra Parameters: " + model.colors.size() + "\n" +
-          "\tExtra Parameters not implemented...\n" +
+          "\tNumber of Extra Parameters: " + model.extras.size() + "\n" +
           "\tPreview available?: " + model.preview.hasPreview + "\n" +
           "}\n\n"
         );
@@ -934,12 +1047,27 @@ public class M3DJ {
 
         //Bones
         if (!model.bones.isEmpty()) {
-
+            output.append("model.bones = {\n");
+            for (M3DJ_Bone bone : model.bones) {
+                output.append("\t{ ");
+                output.append("parent: " + bone.parentIndex + ", ");
+                output.append("name: " + bone.name + ", ");
+                output.append("position: " + bone.position + ", ");
+                output.append("orientation: " + bone.orientation + "},");
+            }
+            output.append("}\n");
         }
 
         // Skins
         if (!model.skins.isEmpty()) {
-
+            output.append("model.skins = {\n");
+            for (M3DJ_Skin skin : model.skins) {
+                output.append("\t{ ");
+                output.append("Bone IDs = { " + skin.boneIds[0] + ", " + skin.boneIds[1] + ", " + skin.boneIds[2] + ", " + skin.boneIds[3] + " }, ");
+                output.append("Weights = { " + skin.weights[0]+ ", " + skin.weights[1]+ ", " + skin.weights[2] + ", " + skin.weights[3]  + " }, ");
+                output.append("}\n");
+            }
+            output.append("}\n");
         }
 
         // Materials
@@ -972,7 +1100,16 @@ public class M3DJ {
 
         // Extras
         if (!model.extras.isEmpty()) {
-
+            output.append("model.extras = {\n");
+            for (M3DJ_Extra extra : model.extras) {
+                output.append("\t{ key: " + extra.key + ", ");
+                output.append("data: ");
+                while (extra.data.hasRemaining()) {
+                    output.append(extra.data.get() + ", ");
+                }
+                output.append(" },\n");
+            }
+            output.append("}\n");
         }
 
         if (filePath == null) {

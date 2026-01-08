@@ -7,8 +7,9 @@ public class M3DJ_Extra {
     public String key;
     public ByteBuffer data;
 
-    public M3DJ_Extra() {
-
+    public M3DJ_Extra(String key, int bufferSize) {
+        this.key = key;
+        this.data = ByteBuffer.allocate(bufferSize);
     }
 
 }

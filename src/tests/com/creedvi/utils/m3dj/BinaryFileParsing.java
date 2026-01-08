@@ -6,7 +6,7 @@ import com.creedvi.utils.m3dj.model.M3DJ_Model;
 import java.io.IOException;
 import java.util.Scanner;
 
-public class fileParsing {
+public class BinaryFileParsing {
 
     private static boolean DEBUG = false;
 
