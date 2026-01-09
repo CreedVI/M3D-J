@@ -648,15 +648,20 @@ public class M3DJ {
 
                             case MAP:
                                 String name = GetString(fileData, model.header.SI_T.size);
-                                //todo: get textureId from string...
-                                //property.SetPropertyValue();
+                                property.SetPropertyValue(LoadTexture(model, fileData, name));
+                                if((int) property.GetPropertyValue() == M3D_UNDEF) {
+                                    logger.out(Tracelog.LogType.LOG_ERROR, "Unable to locate texture: " + name);
+                                    property = null;
+                                }
                                 break;
                             default:
                                 logger.out(Tracelog.LogType.LOG_WARNING, "Unknown material property encountered in " + material.name);
                                 break;
                         }
 
-                        material.properties.add(property);
+                        if(property != null) {
+                            material.properties.add(property);
+                        }
                     }
 
                     model.materials.add(material);
@@ -943,6 +948,13 @@ public class M3DJ {
 
         fileData.position(position + stringOffset);
         return s;
+    }
+
+    private int LoadTexture(M3DJ_Model model, ByteBuffer fileData, String textureName) {
+
+
+
+        return M3D_UNDEF;
     }
 
     /**
