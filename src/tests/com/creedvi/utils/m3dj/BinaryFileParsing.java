@@ -8,7 +8,8 @@ import java.util.Scanner;
 
 public class BinaryFileParsing {
 
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = true;
+    private static final String ASSET_DIRECTORY = "assets/";
 
     public static void main(String[] args) {
         int failCount = 0;
@@ -22,17 +23,21 @@ public class BinaryFileParsing {
         }
 
         String[] filePath = new String[]{
-                "assets/aliveai_character.m3d",
-                "assets/bezier.m3d",
-                "assets/CesiumMan.m3d",
-                "assets/cube.m3d",
-                "assets/cube_normals.m3d",
-                "assets/cube_usemtl.m3d",
-                "assets/cube_with_vertexcolors.m3d",
-                "assets/lantea.m3d",
-                "assets/mobs_dwarves_character.m3d",
-                "assets/nurbs.m3d",
-                "assets/suzanne.m3d",
+                "aliveai_character.m3d",
+                "bezier.m3d",
+                "CesiumMan.m3d",
+                "cube.m3d",
+                "cube_normals.m3d",
+                "cube_usemtl.m3d",
+                "cube_with_vertexcolors.m3d",
+                "lantea.m3d",
+                "mobs_dwarves_character.m3d",
+                "nurbs.m3d",
+                "suzanne.m3d",
+                "voxel.m3d",
+                "WusonBlitz0.m3d",
+                "WusonBlitz1.m3d",
+                "WusonBlitz2.m3d",
         };
 
         for(String s : filePath) {
@@ -42,7 +47,7 @@ public class BinaryFileParsing {
             M3DJ_Model model;
 
             try {
-                model = parser.LoadFile(s);
+                model = parser.LoadFile(ASSET_DIRECTORY + s);
             } catch(IOException e) {
                 throw new RuntimeException(e);
             }

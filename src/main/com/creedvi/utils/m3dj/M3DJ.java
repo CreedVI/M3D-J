@@ -149,10 +149,12 @@ public class M3DJ {
      */
     private M3DJ_Model M3DJ_LoadBinary(ByteBuffer fileData) {
         M3DJ_Model model = new M3DJ_Model();
-        int chunkSize;
+        int chunkSize = 0;
+        int chunkEnd = 0;
+        int i = 0;
 
         StringBuilder magic = new StringBuilder();
-        for(int i = 0; i < MAGIC_LENGTH; i++) {
+        for(i = 0; i < MAGIC_LENGTH; i++) {
             magic.append((char) (fileData.get()));
         }
 
@@ -161,7 +163,7 @@ public class M3DJ {
 
             model.preview.allocateImageBuffer(chunkSize);
 
-            for(int i = 0; i < chunkSize; i++) {
+            for(i = 0; i < chunkSize; i++) {
                 model.preview.imageData.put(fileData.get());
             }
 
@@ -169,7 +171,7 @@ public class M3DJ {
             model.preview.hasPreview = true;
 
             magic = new StringBuilder();
-            for(int i = 0; i < MAGIC_LENGTH; i++) {
+            for(i = 0; i < MAGIC_LENGTH; i++) {
                 magic.append((char) (fileData.get()));
             }
         }
@@ -179,7 +181,7 @@ public class M3DJ {
             fileData = DecompressDataBuffer(fileData.slice(fileData.position() - (Byte.BYTES * 4), fileData.remaining()));
 
             magic = new StringBuilder();
-            for(int i = 0; i < MAGIC_LENGTH; i++) {
+            for(i = 0; i < MAGIC_LENGTH; i++) {
                 magic.append((char) (fileData.get()));
             }
         }
@@ -265,6 +267,7 @@ public class M3DJ {
             return null;
         }
 
+        // Basic file validation
         if(model.header.VC_T.size > 4) {
             logger.out(Tracelog.LogType.LOG_WARNING, "Double precision coordinates are not supported, coordinates will be truncated to float...");
         }
@@ -276,7 +279,7 @@ public class M3DJ {
 
         int endChunkPosition = fileData.limit() - 4;
         magic = new StringBuilder();
-        for(int i = 0; i < MAGIC_LENGTH; i++) {
+        for(i = 0; i < MAGIC_LENGTH; i++) {
             magic.append((char) (fileData.get(endChunkPosition + i)));
         }
         if(!magic.toString().equals("OMD3")) {
@@ -289,8 +292,39 @@ public class M3DJ {
 
         }
 
-        int chunkEnd = 0;
-        int i = 0;
+        // Read through file data to preload in-lined assets
+        int headerEndPosition = fileData.position();
+        while (fileData.hasRemaining()) {
+            magic = new StringBuilder();
+            for(i = 0; i < MAGIC_LENGTH; i++) {
+                magic.append((char) (fileData.get()));
+            }
+
+            // OMD3 indicated the end of the file and does not have a size component.
+            if(!magic.toString().equals("OMD3")) {
+                // Chunk size includes the length of Magic and Integer value, so we have to account that
+                // we've already processed those bytes by subtracting them from the chunk size.
+                chunkSize = fileData.getInt() - (MAGIC_LENGTH * 2);
+                chunkEnd = fileData.position() + chunkSize;
+            }
+            else {
+                break;
+            }
+
+            if (magic.toString().equals("ASET")) {
+                M3DJ_Asset asset = new M3DJ_Asset(chunkSize);
+                asset.name = GetString(fileData, model.header.SI_T.size);
+                while (fileData.position() < chunkEnd) {
+                    asset.assetData.put(fileData.get());
+                }
+                model.assets.add(asset);
+            }
+            else {
+                fileData.position(chunkEnd);
+            }
+        }
+
+        fileData.position(headerEndPosition);
 
         while(fileData.hasRemaining()) {
             magic = new StringBuilder();
@@ -648,9 +682,8 @@ public class M3DJ {
 
                             case MAP:
                                 String name = GetString(fileData, model.header.SI_T.size);
-                                property.SetPropertyValue(LoadTexture(model, fileData, name));
+                                property.SetPropertyValue(LoadTexture(model, name));
                                 if((int) property.GetPropertyValue() == M3D_UNDEF) {
-                                    logger.out(Tracelog.LogType.LOG_ERROR, "Unable to locate texture: " + name);
                                     property = null;
                                 }
                                 break;
@@ -872,11 +905,10 @@ public class M3DJ {
                 case "ASET":
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected end position: " + chunkEnd);
 
-                    for(i = 0; i < chunkSize; i++) {
-                        // todo: load assets
-                        fileData.get();
-                    }
+                    // Assets are preloaded, so we skip this chunk.
+                    fileData.position(chunkEnd);
                     break;
 
                 case "OMD3":
@@ -950,9 +982,58 @@ public class M3DJ {
         return s;
     }
 
-    private int LoadTexture(M3DJ_Model model, ByteBuffer fileData, String textureName) {
+    /**
+     * Load model texture from in-line asset if present, or from external file at model location in filesystem.
+     *
+     * @param model
+     * @param textureName
+     * @return ID of texture
+     */
+    private int LoadTexture(M3DJ_Model model, String textureName) {
 
+        // Failsafe
+        if (textureName == null || textureName.isBlank()) {
+            return M3D_UNDEF;
+        }
 
+        // Check loaded textures
+        for (int i = 0; i < model.textures.size(); i++) {
+            if (textureName.equals(model.textures.get(i).name)) {
+                return i;
+            }
+        }
+
+        // Check in-line assets for texture
+        for (int i = 0; i < model.assets.size(); i++) {
+            if (textureName.equals(model.assets.get(i).name)) {
+                M3DJ_Texture texture = new M3DJ_Texture();
+                texture.name = model.assets.get(i).name;
+                texture.textureData = model.assets.get(i).assetData;
+
+                // Once the texture is loaded we can remove it from the assets
+                // and move it to the textures; we replace the element with null
+                // so that asset indices do not shift.
+                model.assets.remove(i);
+                model.assets.add(i, null);
+
+                model.textures.add(texture);
+                return model.textures.size() - 1;
+            }
+        }
+
+        // Attempt to load from filesystem
+        try {
+            byte[] textureData = IO.LoadFileData(textureName);
+
+            M3DJ_Texture texture = new M3DJ_Texture();
+            texture.name = textureName;
+            texture.textureData = ByteBuffer.wrap(textureData);
+            model.textures.add(texture);
+        }
+        catch (IOException e) {
+            logger.out(Tracelog.LogType.LOG_ERROR, "Failed to load texture from filesystem: " + textureName);
+            logger.out(Tracelog.LogType.LOG_ERROR, "Models dependant on external files must be placed in the same directory.");
+        }
 
         return M3D_UNDEF;
     }
@@ -999,24 +1080,25 @@ public class M3DJ {
     public void DumpModel(M3DJ_Model model, String filePath) throws IOException {
         StringBuilder output = new StringBuilder();
         // Header Bitfield
-        output.append("model = {\n" +
-                "\t VC: " + model.header.VC_T.size + "\n" +
-                "\t VI: " + model.header.VI_T.size + "\n" +
-                "\t SI: " + model.header.SI_T.size + "\n" +
-                "\t CI: " + model.header.CI_T.size + "\n" +
-                "\t TI: " + model.header.TI_T.size + "\n" +
-                "\t BI: " + model.header.BI_T.size + "\n" +
-                "\t NB: " + model.header.NB_T.value + "\n" +
-                "\t SK: " + model.header.SK_T.size + "\n" +
-                "\t FC: " + model.header.FC_T.size + "\n" +
-                "\t HI: " + model.header.HI_T.size + "\n" +
-                "\t FI: " + model.header.FI_T.size + "\n" +
-                "\n"
+        output.append(
+                        "model = {\n" +
+                        "\t VC: " + model.header.VC_T.size + "\n" +
+                        "\t VI: " + model.header.VI_T.size + "\n" +
+                        "\t SI: " + model.header.SI_T.size + "\n" +
+                        "\t CI: " + model.header.CI_T.size + "\n" +
+                        "\t TI: " + model.header.TI_T.size + "\n" +
+                        "\t BI: " + model.header.BI_T.size + "\n" +
+                        "\t NB: " + model.header.NB_T.value + "\n" +
+                        "\t SK: " + model.header.SK_T.size + "\n" +
+                        "\t FC: " + model.header.FC_T.size + "\n" +
+                        "\t HI: " + model.header.HI_T.size + "\n" +
+                        "\t FI: " + model.header.FI_T.size + "\n" +
+                        "\n"
         );
 
         // Header Metadata
         output.append(
-                "\tName: " + model.header.title + "\n" +
+                        "\tName: " + model.header.title + "\n" +
                         "\tLicense: " + model.header.licence + "\n" +
                         "\tAuthor: " + model.header.author + "\n" +
                         "\tDescription: " + model.header.description + "\n" +
@@ -1026,10 +1108,10 @@ public class M3DJ {
 
         // Model Information
         output.append(
-                "\tColor map size: " + model.colors.size() + "\n" +
+                        "\tPreview available?: " + model.preview.hasPreview + "\n" +
+                        "\tColor map size: " + model.colors.size() + "\n" +
                         "\tTexture map size: " + model.textureMap.size() + "\n" +
-                        //"\tNumber of textures: " + model.textures.size() + "\n  +
-                        "\tTexture loading not implemented...\n" +
+                        "\tNumber of textures: " + model.textures.size() + "\n" +
                         "\tNumber of bones: " + model.bones.size() + "\n" +
                         "\tNumber of vertices: " + model.vertices.size() + "\n" +
                         "\tNumber of skins: " + model.skins.size() + "\n" +
@@ -1044,23 +1126,33 @@ public class M3DJ {
                         "\tNumber of Labels: " + model.labels.size() + "\n" +
                         // "\tNumber of Actions: " + model.colors.size() + "\n" +
                         "\tActions not implemented...\n" +
-                        // "\tNumber of Inlined Assets: " + model.colors.size() + "\n" +
-                        "\tInline Assets not implemented...\n" +
+                        "\tNumber of assets: " + model.assets.size() + "\n" +
                         "\tNumber of Extra Parameters: " + model.extras.size() + "\n" +
-                        "\tPreview available?: " + model.preview.hasPreview + "\n" +
                         "}\n\n"
         );
+
+        //Assets
+        if (!model.assets.isEmpty()) {
+            output.append("model.assets = {\n");
+            for(M3DJ_Asset asset : model.assets) {
+                output.append("\t{ Name: " + asset.name + ", ");
+                output.append("Bytes: " + asset.assetData.capacity() + "}, \n");
+            }
+            output.append("}\n");
+        }
 
         // Color map
         if(!model.colors.isEmpty()) {
             output.append("model.colors = {\n");
             for(M3DJ_Color color : model.colors) {
-                output.append("\t{ " +
+                output.append(
+                        "\t{ " +
                         "R: " + color.r + " " +
                         "G: " + color.g + " " +
                         "B: " + color.b + " " +
                         "A: " + color.a + " " +
-                        " },\n");
+                        " },\n"
+                );
             }
             output.append("}\n");
         }
@@ -1069,10 +1161,12 @@ public class M3DJ {
         if(!model.textureMap.isEmpty()) {
             output.append("model.textureMap = {\n");
             for(M3DJ_TextureCoordinate textureCoordinate : model.textureMap) {
-                output.append("\t{ " +
+                output.append(
+                        "\t{ " +
                         "U: " + textureCoordinate.u + ", " +
                         "V: " + textureCoordinate.v +
-                        " },\n");
+                        " },\n"
+                );
             }
             output.append("}\n");
         }
@@ -1081,14 +1175,16 @@ public class M3DJ {
         if(!model.vertices.isEmpty()) {
             output.append("model.vertices = {\n");
             for(M3DJ_Vertex vertex : model.vertices) {
-                output.append("\t{ " +
+                output.append(
+                        "\t{ " +
                         "X: " + vertex.x + ", " +
                         "Y: " + vertex.y + ", " +
                         "Z: " + vertex.z + ", " +
                         "W: " + vertex.w + ", " +
                         "Skin Index: " + vertex.skinIndex + ", " +
                         "Color Index: " + vertex.colorIndex +
-                        " }\n");
+                        " }\n"
+                );
             }
             output.append("}\n");
         }
@@ -1110,7 +1206,16 @@ public class M3DJ {
             output.append("}\n");
         }
 
-        //Bones
+        // Textures
+        if (!model.textures.isEmpty()) {
+            output.append("model.textures = {\n");
+            for(M3DJ_Texture texture : model.textures) {
+                output.append("\t{ " + texture.name + "},\n");
+            }
+            output.append("}\n");
+        }
+
+        // Bones
         if(!model.bones.isEmpty()) {
             output.append("model.bones = {\n");
             for(M3DJ_Bone bone : model.bones) {
@@ -1158,18 +1263,20 @@ public class M3DJ {
             output.append("}\n");
         }
 
-        //Labels
+        // Labels
         if(!model.labels.isEmpty()) {
             output.append("model.labels = {\n");
             for(M3DJ_Label label : model.labels) {
-                output.append("\t{" +
+                output.append(
+                        "\t{" +
                         "name: " + label.name + ", " +
                         "language: " + label.language + ", " +
                         "text: " + label.text + ", " +
                         "colorId: " + label.colorId + ", " +
                         "vertexId: " + label.vertexId + ", " +
                         "}," +
-                        "\n");
+                        "\n"
+                );
             }
             output.append("}\n");
         }

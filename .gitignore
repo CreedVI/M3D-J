@@ -4,3 +4,4 @@ out/
 META-INF/
 build/
 *.dump
+/dump/
