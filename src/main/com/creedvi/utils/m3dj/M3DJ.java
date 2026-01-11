@@ -895,11 +895,28 @@ public class M3DJ {
                 case "ACTN":
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
                     logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected end position: " + chunkEnd);
 
-                    for(i = 0; i < chunkSize; i++) {
-                        // todo: load actions and animations
-                        fileData.get();
+                    M3DJ_Action action = new M3DJ_Action();
+                    action.name = GetString(fileData, model.header.SI_T.size);
+                    action.frameCount = fileData.getShort();
+                    action.animationLength = fileData.getInt();
+
+                    for(i = 0; i < action.frameCount; i++) {
+                        int time = fileData.getInt();
+                        int count = GetIndex(fileData, model.header.FC_T.size);
+                        M3DJ_Frame frame = new M3DJ_Frame(time, count);
+
+                        for (int j = 0; j < frame.transformsCount; j++) {
+                            frame.transforms[j].boneId = GetIndex(fileData, model.header.BI_T.size);
+                            frame.transforms[j].position = GetIndex(fileData, model.header.VI_T.size);
+                            frame.transforms[j].orientation = GetIndex(fileData, model.header.VI_T.size);
+                        }
+
+                        action.frames.add(frame);
                     }
+
+                    model.actions.add(action);
                     break;
 
                 case "ASET":
@@ -985,8 +1002,8 @@ public class M3DJ {
     /**
      * Load model texture from in-line asset if present, or from external file at model location in filesystem.
      *
-     * @param model
-     * @param textureName
+     * @param model M3D model
+     * @param textureName Targeted texture to load or fetch
      * @return ID of texture
      */
     private int LoadTexture(M3DJ_Model model, String textureName) {
@@ -1124,8 +1141,7 @@ public class M3DJ {
                         // "\tNumber of Shapes: " + model.colors.size() + "\n" +
                         "\tShapes not implemented...\n" +
                         "\tNumber of Labels: " + model.labels.size() + "\n" +
-                        // "\tNumber of Actions: " + model.colors.size() + "\n" +
-                        "\tActions not implemented...\n" +
+                        "\tNumber of Actions: " + model.actions.size() + "\n" +
                         "\tNumber of assets: " + model.assets.size() + "\n" +
                         "\tNumber of Extra Parameters: " + model.extras.size() + "\n" +
                         "}\n\n"
@@ -1283,7 +1299,38 @@ public class M3DJ {
 
         // Actions
         if(!model.actions.isEmpty()) {
-            // TODO
+            output.append("model.actions = {\n");
+            for(M3DJ_Action action : model.actions) {
+                output.append(
+                        "\t{ " +
+                        "name: " + action.name + ", " +
+                        "duration: " + action.animationLength + ", " +
+                        "frame count: " + action.frameCount + ", " +
+                        "frames = {\n"
+                );
+                for (M3DJ_Frame frame : action.frames) {
+                    output.append(
+                            "\t\t{ " +
+                            "timestamp: " + frame.timestamp + ", " +
+                            "number of transforms: " + frame.transformsCount +  ", " +
+                            "transforms = {\n"
+                    );
+                    for(M3DJ_Transform transform : frame.transforms) {
+                        output.append(
+                                "\t\t\t{ " +
+                                "bone ID: " + transform.boneId +  ", " +
+                                "position: " + transform.position +  ", " +
+                                "orientation: " + transform.orientation +
+                                " },\n"
+                        );
+                    }
+                    output.append("\t\t},\n");
+                }
+                output.append(
+                        "\t}\n"
+                );
+            }
+            output.append("}\n");
         }
 
         // Extras
@@ -1304,25 +1351,7 @@ public class M3DJ {
             System.out.println(output);
         }
         else {
-            Path path = Paths.get(filePath);
-
-            if(!path.toFile().exists()) {
-                try {
-                    Files.write(path, Collections.singleton(output.toString()));
-                } catch(IOException exception) {
-                    logger.out(Tracelog.LogType.LOG_WARNING, "Failed to write file " + filePath);
-                    throw exception;
-                }
-            }
-            else {
-                logger.out(Tracelog.LogType.LOG_INFO, "FILEIO: Overwriting file " + filePath);
-                try {
-                    Files.write(path, Collections.singleton(output.toString()));
-                } catch(IOException exception) {
-                    logger.out(Tracelog.LogType.LOG_WARNING, "Failed to write file " + filePath);
-                    throw exception;
-                }
-            }
+            IO.WriteFileText(filePath + ".dump", output.toString());
         }
     }
 }

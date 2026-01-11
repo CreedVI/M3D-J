@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 
 public class IO {
     public static byte[] LoadFileData(String fileName) throws IOException {
@@ -42,5 +43,25 @@ public class IO {
         }
 
         return text.toString();
+    }
+
+    public static void WriteFileText(String fileName, String fileContent) {
+        Path path = Paths.get(fileName);
+
+        if(!path.toFile().exists()) {
+            try {
+                Files.write(path, Collections.singleton(fileContent));
+            }
+            catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        else {
+            try {
+                Files.write(path, Collections.singleton(fileContent));
+            } catch(IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 }
