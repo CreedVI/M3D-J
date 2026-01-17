@@ -37,7 +37,7 @@ public class M3DJ_Header {
     }
 
     public void DumpBitField(Tracelog logger) {
-        logger.out(
+        logger.Out(
                 Tracelog.LogType.LOG_DEBUG,
                 "Model bitfield is defined as follows:" + "\n" +
                         "\t VC_T [Vertex Coordinate Type]: " + this.VC_T + "\n" +

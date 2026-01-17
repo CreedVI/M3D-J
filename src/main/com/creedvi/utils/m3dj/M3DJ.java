@@ -8,10 +8,6 @@ import com.creedvi.utils.m3dj.model.chunks.*;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Collections;
 import java.util.zip.*;
 
 import static com.creedvi.utils.m3dj.model.chunks.VariableTypes.VariableType.UNDEFINED;
@@ -46,13 +42,37 @@ public class M3DJ {
     /**
      * Create new M3DJ Parser specifying the desired log verbosity.
      * Tracelog.LogLevel provides static values for verbosity.
-     * They are, from least to most verbose, LEVEL_INFO, LEVEL_WARNING, LEVEL_ERROR, LEVEL_DEBUG.
+     * They are, from least to most verbose, LEVEL_ERROR, LEVEL_WARNING, LEVEL_INFO,  LEVEL_DEBUG.
      * Each level will produce all entries up to its value.
      *
      * @param verbosity Logging level to be output
      */
     public M3DJ(int verbosity) {
         this.logger = new Tracelog(verbosity);
+    }
+
+    /**
+     * Keeps the M3DJ Parser from pushing any log info to the console.
+     */
+    public void Mute() {
+        this.logger.SetMute(true);
+    }
+
+    /**
+     * Sets the M3DJ Parser to output logs at the default level.
+     */
+    public void Unmute() {
+        this.logger.SetMute(false);
+    }
+
+    /**
+     * Sets the M3DJ Parser to output logs at the desired log verbosity.
+     * Tracelog.LogLevel provides static values for verbosity.
+     * They are, from least to most verbose, LEVEL_ERROR, LEVEL_WARNING, LEVEL_INFO,  LEVEL_DEBUG.
+     * Each level will produce all entries up to its value.
+     */
+    public void SetVerbosity(int verbosity) {
+        this.logger.SetLogLevel(verbosity);
     }
 
 
@@ -106,17 +126,17 @@ public class M3DJ {
 
             if(magic.toString().equals("3DMO")) {
                 fileSize = fileData.getInt();
-                logger.out(Tracelog.LogType.LOG_INFO, "Binary magic found. File size: " + fileSize + "B");
+                logger.Out(Tracelog.LogType.LOG_INFO, "Binary magic found. File size: " + fileSize + "B");
                 result = M3DJ_LoadBinary(fileData);
             }
             else if(magic.toString().equals("3dmo")) {
                 fileSize = fileData.getInt();
-                logger.out(Tracelog.LogType.LOG_INFO, "ASCII magic found. File size: " + fileSize + "B");
-                logger.out(Tracelog.LogType.LOG_WARNING, "ASCII parsing is not supported at this time! Object returned will be null...");
+                logger.Out(Tracelog.LogType.LOG_INFO, "ASCII magic found. File size: " + fileSize + "B");
+                logger.Out(Tracelog.LogType.LOG_WARNING, "ASCII parsing is not supported at this time! Object returned will be null...");
                 result = M3DJ_LoadAscii(fileData);
             }
             else {
-                logger.out(Tracelog.LogType.LOG_WARNING, "Bad magic identified. Returning null object.");
+                logger.Out(Tracelog.LogType.LOG_WARNING, "Bad magic identified. Returning null object.");
                 return null;
             }
         }
@@ -177,7 +197,7 @@ public class M3DJ {
         }
 
         if(!magic.toString().equals("HEAD")) {
-            logger.out(Tracelog.LogType.LOG_INFO, "Failed to identify header; assuming compressed data and attempting to decompress...");
+            logger.Out(Tracelog.LogType.LOG_INFO, "Failed to identify header; assuming compressed data and attempting to decompress...");
             fileData = DecompressDataBuffer(fileData.slice(fileData.position() - (Byte.BYTES * 4), fileData.remaining()));
 
             magic = new StringBuilder();
@@ -188,13 +208,13 @@ public class M3DJ {
 
         if(magic.toString().equals("HEAD")) {
             chunkSize = fileData.getInt();
-            logger.out(Tracelog.LogType.LOG_DEBUG, "Header chunk size: " + chunkSize);
+            logger.Out(Tracelog.LogType.LOG_DEBUG, "Header chunk size: " + chunkSize);
 
             model.header.scale = fileData.getFloat();
             if(model.header.scale <= 0.0f) {
                 model.header.scale = 1.0f;
             }
-            logger.out(Tracelog.LogType.LOG_DEBUG, "Scaling factor: " + model.header.scale);
+            logger.Out(Tracelog.LogType.LOG_DEBUG, "Scaling factor: " + model.header.scale);
 
             int bitField = fileData.getInt();
             model.header.VC_T = VariableTypes.GetVertexCoordTypeByBytePattern(((bitField >> 0) & 3));
@@ -254,8 +274,8 @@ public class M3DJ {
             model.header.description = model.header.stringTable.get(3);
 
 
-            logger.out(Tracelog.LogType.LOG_INFO,
-                    "Model metadata:\n" +
+            logger.Out(Tracelog.LogType.LOG_INFO,
+                       "Model metadata:\n" +
                             "\tModel: " + model.header.title + "\n" +
                             "\tLicence: " + model.header.licence + "\n" +
                             "\tAuthor: " + model.header.author + "\n" +
@@ -263,17 +283,17 @@ public class M3DJ {
             );
         }
         else {
-            logger.out(Tracelog.LogType.LOG_WARNING, "Bad data found. Failed to identify Header chunk where expected. Returning null object...");
+            logger.Out(Tracelog.LogType.LOG_WARNING, "Bad data found. Failed to identify Header chunk where expected. Returning null object...");
             return null;
         }
 
         // Basic file validation
         if(model.header.VC_T.size > 4) {
-            logger.out(Tracelog.LogType.LOG_WARNING, "Double precision coordinates are not supported, coordinates will be truncated to float...");
+            logger.Out(Tracelog.LogType.LOG_WARNING, "Double precision coordinates are not supported, coordinates will be truncated to float...");
         }
 
         if(model.header.VI_T.size > 4 || model.header.SI_T.size > 4 || model.header.VP_T.size == 4) {
-            logger.out(Tracelog.LogType.LOG_ERROR, "Invalid index size, unable to load model. Returning null object...");
+            logger.Out(Tracelog.LogType.LOG_ERROR, "Invalid index size, unable to load model. Returning null object...");
             return null;
         }
 
@@ -283,12 +303,12 @@ public class M3DJ {
             magic.append((char) (fileData.get(endChunkPosition + i)));
         }
         if(!magic.toString().equals("OMD3")) {
-            logger.out(Tracelog.LogType.LOG_ERROR, "Missing end chunk. Returning null object...");
+            logger.Out(Tracelog.LogType.LOG_ERROR, "Missing end chunk. Returning null object...");
             return null;
         }
 
         if(model.header.NB_T.value > M3D_NUMBONE) {
-            logger.out(Tracelog.LogType.LOG_ERROR, "Model has more bones per vertex than what importer was configured to support");
+            logger.Out(Tracelog.LogType.LOG_ERROR, "Model has more bones per vertex than what importer was configured to support");
 
         }
 
@@ -340,17 +360,17 @@ public class M3DJ {
                 chunkEnd = fileData.position() + chunkSize;
             }
 
-            logger.out(Tracelog.LogType.LOG_DEBUG, "===");
-            logger.out(Tracelog.LogType.LOG_DEBUG, "Magic reads: " + magic);
+            logger.Out(Tracelog.LogType.LOG_DEBUG, "===");
+            logger.Out(Tracelog.LogType.LOG_DEBUG, "Magic reads: " + magic);
 
             switch(magic.toString()) {
                 case "CMAP":
                     if(CMAP_Loaded) {
-                        logger.out(Tracelog.LogType.LOG_ERROR, "Additional color map chunk encountered. Color map chunk must be unique.");
+                        logger.Out(Tracelog.LogType.LOG_ERROR, "Additional color map chunk encountered. Color map chunk must be unique.");
                         continue;
                     }
                     if(model.header.CI_T == UNDEFINED) {
-                        logger.out(Tracelog.LogType.LOG_ERROR, "Encountered color map chunk while datatype is null.");
+                        logger.Out(Tracelog.LogType.LOG_ERROR, "Encountered color map chunk while datatype is null.");
                         continue;
                     }
                     CMAP_Loaded = true;
@@ -358,10 +378,10 @@ public class M3DJ {
                     int colorSize = model.header.CI_T.size;
                     int numColors = chunkSize / colorSize;
 
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected Number of Colours: " + numColors);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Colour unit size: " + colorSize + " bytes");
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected Number of Colours: " + numColors);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Colour unit size: " + colorSize + " bytes");
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
                     while(fileData.position() < chunkEnd) {
                         M3DJ_Color color = new M3DJ_Color();
@@ -373,17 +393,17 @@ public class M3DJ {
                         model.colors.add(color);
                     }
 
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Colours Loaded: " + model.colors.size());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Colours Loaded: " + model.colors.size());
 
                     break;
 
                 case "TMAP":
                     if(TMAP_Loaded) {
-                        logger.out(Tracelog.LogType.LOG_ERROR, "Additional texture map chunk encountered. Texture map chunk must be unique.");
+                        logger.Out(Tracelog.LogType.LOG_ERROR, "Additional texture map chunk encountered. Texture map chunk must be unique.");
                         continue;
                     }
                     if(model.header.TI_T == UNDEFINED) {
-                        logger.out(Tracelog.LogType.LOG_ERROR, "Encountered texture map chunk while datatype is null.");
+                        logger.Out(Tracelog.LogType.LOG_ERROR, "Encountered texture map chunk while datatype is null.");
                         continue;
                     }
                     TMAP_Loaded = true;
@@ -391,11 +411,11 @@ public class M3DJ {
                     int texCoordSize = (model.header.VC_T.size * 2);
                     int numTexCoords = (chunkSize / texCoordSize);
 
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected Number of Texture Coordinates: " + numTexCoords);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Texture coordinate size: " + texCoordSize + " bytes");
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected Number of Texture Coordinates: " + numTexCoords);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Texture coordinate size: " + texCoordSize + " bytes");
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
                     for(i = 0; i < numTexCoords; i++) {
                         switch(model.header.VC_T) {
@@ -421,28 +441,28 @@ public class M3DJ {
                             }
                         }
                     }
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Texture Coordinates Loaded: " + model.textureMap.size());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Texture Coordinates Loaded: " + model.textureMap.size());
 
                     break;
 
                 case "VRTS":
                     if(VRTS_Loaded) {
-                        logger.out(Tracelog.LogType.LOG_ERROR, "Additional vertex data chunk encountered. Vertex data chunk must be unique.");
+                        logger.Out(Tracelog.LogType.LOG_ERROR, "Additional vertex data chunk encountered. Vertex data chunk must be unique.");
                         continue;
                     }
                     if(model.header.CI_T != UNDEFINED && model.header.CI_T.size < 4 && !CMAP_Loaded) {
-                        logger.out(Tracelog.LogType.LOG_WARNING, "No Color map loaded prior to vertex data. There may be issues with the model.");
+                        logger.Out(Tracelog.LogType.LOG_WARNING, "No Color map loaded prior to vertex data. There may be issues with the model.");
                     }
                     VRTS_Loaded = true;
 
                     int vertexSize = (model.header.VC_T.size * 4) + model.header.CI_T.size + model.header.SK_T.size;
                     int numVertices = chunkSize / vertexSize;
 
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected Number of Texture Coordinates: " + numVertices);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Texture coordinate size: " + vertexSize + " bytes");
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected Number of Texture Coordinates: " + numVertices);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Texture coordinate size: " + vertexSize + " bytes");
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
                     for(i = 0; i < numVertices; i++) {
                         M3DJ_Vertex vertex = new M3DJ_Vertex();
@@ -509,15 +529,15 @@ public class M3DJ {
 
                 case "BONE":
                     if(BONE_Loaded) {
-                        logger.out(Tracelog.LogType.LOG_ERROR, "Additional bone data chunk encountered. Bone data chunk must be unique.");
+                        logger.Out(Tracelog.LogType.LOG_ERROR, "Additional bone data chunk encountered. Bone data chunk must be unique.");
                         continue;
                     }
                     if(model.header.BI_T == UNDEFINED) {
-                        logger.out(Tracelog.LogType.LOG_ERROR, "Encountered bone data chunk while datatype is null.");
+                        logger.Out(Tracelog.LogType.LOG_ERROR, "Encountered bone data chunk while datatype is null.");
                         continue;
                     }
                     if(!VRTS_Loaded) {
-                        logger.out(Tracelog.LogType.LOG_ERROR, "No vertex data was loaded prior to bone data.");
+                        logger.Out(Tracelog.LogType.LOG_ERROR, "No vertex data was loaded prior to bone data.");
                         break;
                     }
                     BONE_Loaded = true;
@@ -525,11 +545,11 @@ public class M3DJ {
                     int boneCount = GetIndex(fileData, model.header.BI_T.size);
                     int skinCount = GetIndex(fileData, model.header.SK_T.size);
 
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected number of bone records: " + boneCount);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected number of skin records: " + skinCount);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected number of bone records: " + boneCount);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected number of skin records: " + skinCount);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
                     for(i = 0; fileData.position() < chunkEnd && i < boneCount; i++) {
                         M3DJ_Bone bone = new M3DJ_Bone();
@@ -542,7 +562,7 @@ public class M3DJ {
                     }
 
                     if(i != boneCount) {
-                        logger.out(Tracelog.LogType.LOG_ERROR, "Malformed Bone Chunk. Expected bone count: "
+                        logger.Out(Tracelog.LogType.LOG_ERROR, "Malformed Bone Chunk. Expected bone count: "
                                 + boneCount + ". Number of bones parsed: " + i);
                         return null;
                     }
@@ -591,7 +611,7 @@ public class M3DJ {
                         }
 
                         if(i != skinCount) {
-                            logger.out(Tracelog.LogType.LOG_ERROR, "Malformed Skin within Bone Chunk. Expected skin count: "
+                            logger.Out(Tracelog.LogType.LOG_ERROR, "Malformed Skin within Bone Chunk. Expected skin count: "
                                     + skinCount + ". Number of skins parsed: " + i);
                             return null;
                         }
@@ -599,18 +619,18 @@ public class M3DJ {
                     break;
 
                 case "MTRL":
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
                     M3DJ_Material material = new M3DJ_Material();
                     material.name = GetString(fileData, model.header.SI_T.size);
 
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Material name: " + material.name);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Material name: " + material.name);
 
                     for(M3DJ_Material mat : model.materials) {
                         if(mat.name.equals(material.name)) {
-                            logger.out(Tracelog.LogType.LOG_ERROR, "Multiple definitions for material " + material.name + ".");
+                            logger.Out(Tracelog.LogType.LOG_ERROR, "Multiple definitions for material " + material.name + ".");
                             break;
                         }
                     }
@@ -688,7 +708,7 @@ public class M3DJ {
                                 }
                                 break;
                             default:
-                                logger.out(Tracelog.LogType.LOG_WARNING, "Unknown material property encountered in " + material.name);
+                                logger.Out(Tracelog.LogType.LOG_WARNING, "Unknown material property encountered in " + material.name);
                                 break;
                         }
 
@@ -701,23 +721,23 @@ public class M3DJ {
                     break;
 
                 case "PROC":
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for(i = 0; i < chunkSize; i++) {
-                        // todo: load procedural surfaces
-                        fileData.get();
-                    }
+                    // TODO: Procedural mesh support
+                    logger.Out(Tracelog.LogType.LOG_WARNING, "PROC Chunk encountered. This feature is not yet supported and this chunk will be skipped...");
+                    fileData.position(chunkEnd);
+
                     break;
 
                 case "MESH":
                     if(!VRTS_Loaded) {
-                        logger.out(Tracelog.LogType.LOG_ERROR, "No vertex data loaded prior to mesh data.");
+                        logger.Out(Tracelog.LogType.LOG_ERROR, "No vertex data loaded prior to mesh data.");
                     }
 
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + (fileData.position() + chunkSize));
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
                     int materialIndex = M3D_UNDEF;
                     int parameterIndex = M3D_UNDEF;
@@ -727,9 +747,9 @@ public class M3DJ {
                         byte n = (byte) (recordMagic >> 4);
                         byte k = (byte) (recordMagic & 15);
 
-                        logger.out(Tracelog.LogType.LOG_DEBUG, "Record magic: " + recordMagic);
-                        logger.out(Tracelog.LogType.LOG_DEBUG, "n magic: " + n);
-                        logger.out(Tracelog.LogType.LOG_DEBUG, "k magic: " + k);
+                        logger.Out(Tracelog.LogType.LOG_DEBUG, "Record magic: " + recordMagic);
+                        logger.Out(Tracelog.LogType.LOG_DEBUG, "n magic: " + n);
+                        logger.Out(Tracelog.LogType.LOG_DEBUG, "k magic: " + k);
 
                         if(n == 0) {
                             if(k == 0) {
@@ -742,7 +762,7 @@ public class M3DJ {
                                         }
                                     }
                                     if(materialIndex == M3D_UNDEF) {
-                                        logger.out(Tracelog.LogType.LOG_ERROR, "Model references unknown material: " + name + ".");
+                                        logger.Out(Tracelog.LogType.LOG_ERROR, "Model references unknown material: " + name + ".");
                                     }
                                 }
                             }
@@ -770,7 +790,7 @@ public class M3DJ {
                         }
 
                         if(n != 3) {
-                            logger.out(Tracelog.LogType.LOG_ERROR, "Only triangle meshes are supported by M3D SDK at this time. Returning null object...");
+                            logger.Out(Tracelog.LogType.LOG_ERROR, "Only triangle meshes are supported by M3D SDK at this time. Returning null object...");
                             return null;
                         }
 
@@ -800,7 +820,7 @@ public class M3DJ {
                             }
                         }
                         if(j != n) {
-                            logger.out(Tracelog.LogType.LOG_ERROR, "Invalid mesh found. Returning null object...");
+                            logger.Out(Tracelog.LogType.LOG_ERROR, "Invalid mesh found. Returning null object...");
                             return null;
                         }
                         model.faces.add(face);
@@ -808,58 +828,58 @@ public class M3DJ {
                     break;
 
                 case "SHPE":
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for(i = 0; i < chunkSize; i++) {
-                        // todo: load shapes
-                        fileData.get();
-                    }
+                    // TODO: Shapes support
+                    logger.Out(Tracelog.LogType.LOG_WARNING, "SHPE Chunk encountered. This feature is not yet supported and this chunk will be skipped...");
+                    fileData.position(chunkEnd);
+
                     break;
 
                 case "VOXT":
                     VOXT_Loaded = true;
 
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for(i = 0; i < chunkSize; i++) {
-                        // todo: load voxel types
-                        fileData.get();
-                    }
+                    // TODO: Voxel support
+                    logger.Out(Tracelog.LogType.LOG_WARNING, "VOXT Chunk encountered. This feature is not yet supported and this chunk will be skipped...");
+                    fileData.position(chunkEnd);
+
                     break;
 
                 case "VOXD":
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
 
-                    for(i = 0; i < chunkSize; i++) {
-                        // todo: load voxel data
-                        fileData.get();
-                    }
+                    // TODO: Voxel support
+                    logger.Out(Tracelog.LogType.LOG_WARNING, "VOXD Chunk encountered. This feature is not yet supported and this chunk will be skipped...");
+                    fileData.position(chunkEnd);
+
                     break;
 
                 case "LBLS":
                     int recordLength = model.header.VI_T.size + model.header.SI_T.size;
                     i = chunkSize / recordLength;
 
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Label size: " + recordLength);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected number of labels: " + i);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected end position: " + chunkEnd);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Label size: " + recordLength);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected number of labels: " + i);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected end position: " + chunkEnd);
 
                     for(i = 0; i < chunkSize; i++) {
                         String labelName = GetString(fileData, model.header.SI_T.size);
                         String labelLanguage = GetString(fileData, model.header.SI_T.size);
                         if(!labelName.isBlank()) {
-                            logger.out(Tracelog.LogType.LOG_DEBUG, "Label name: " + labelName);
+                            logger.Out(Tracelog.LogType.LOG_DEBUG, "Label name: " + labelName);
                         }
                         if(!labelLanguage.isBlank()) {
-                            logger.out(Tracelog.LogType.LOG_DEBUG, "Label Language: " + labelLanguage);
+                            logger.Out(Tracelog.LogType.LOG_DEBUG, "Label Language: " + labelLanguage);
                         }
                         if(model.header.CI_T != null && model.header.CI_T.size < 4 && model.colors.isEmpty()) {
-                            logger.out(Tracelog.LogType.LOG_ERROR, "No color map data was loaded prior to encountering labels. Returning null object...");
+                            logger.Out(Tracelog.LogType.LOG_ERROR, "No color map data was loaded prior to encountering labels. Returning null object...");
                             return null;
                         }
 
@@ -893,9 +913,9 @@ public class M3DJ {
                     break;
 
                 case "ACTN":
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected end position: " + chunkEnd);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected end position: " + chunkEnd);
 
                     M3DJ_Action action = new M3DJ_Action();
                     action.name = GetString(fileData, model.header.SI_T.size);
@@ -920,27 +940,27 @@ public class M3DJ {
                     break;
 
                 case "ASET":
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected end position: " + chunkEnd);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Chunk size: " + chunkSize);
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected end position: " + chunkEnd);
 
                     // Assets are preloaded, so we skip this chunk.
                     fileData.position(chunkEnd);
                     break;
 
                 case "OMD3":
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "Expected end position: " + fileData.capacity());
-                    logger.out(Tracelog.LogType.LOG_DEBUG, "End of file reached.");
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected end position: " + fileData.capacity());
+                    logger.Out(Tracelog.LogType.LOG_DEBUG, "End of file reached.");
                     return model;
 
                 default:
                     if(!processExtras) {
-                        logger.out(Tracelog.LogType.LOG_WARNING, "Unexpected magic value encountered:" +
+                        logger.Out(Tracelog.LogType.LOG_WARNING, "Unexpected magic value encountered:" +
                                  "\n\t" + magic + " at position " + fileData.position() + ". Attempting to skip and continue parsing...");
                     }
                     else {
-                        logger.out(Tracelog.LogType.LOG_INFO, "Nonstandard magic value encountered:" + magic + " Evaluating as an extra");
+                        logger.Out(Tracelog.LogType.LOG_INFO, "Nonstandard magic value encountered:" + magic + " Evaluating as an extra");
                         M3DJ_Extra extra = new M3DJ_Extra(magic.toString(), chunkSize);
                         while(fileData.position() < chunkEnd) {
                             extra.data.put(fileData.get());
@@ -951,7 +971,7 @@ public class M3DJ {
                     break;
             }
 
-            logger.out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
+            logger.Out(Tracelog.LogType.LOG_DEBUG, "Current position: " + fileData.position());
         }
 
         // Model is only valid if end chunk exists.
@@ -1048,8 +1068,8 @@ public class M3DJ {
             model.textures.add(texture);
         }
         catch (IOException e) {
-            logger.out(Tracelog.LogType.LOG_ERROR, "Failed to load texture from filesystem: " + textureName);
-            logger.out(Tracelog.LogType.LOG_ERROR, "Models dependant on external files must be placed in the same directory.");
+            logger.Out(Tracelog.LogType.LOG_ERROR, "Failed to load texture from filesystem: " + textureName);
+            logger.Out(Tracelog.LogType.LOG_ERROR, "Models dependant on external files must be placed in the same directory.");
         }
 
         return M3D_UNDEF;
