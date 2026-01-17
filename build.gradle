@@ -1,6 +1,5 @@
 plugins {
     id 'java-library'
-    id 'maven-publish'
 }
 
 group = 'com.creedvi'
@@ -32,20 +31,5 @@ sourceSets {
     test {
         java.srcDir('src/tests')
         resources.srcDir('assets')
-    }
-}
-
-publishing {
-    publications {
-        M3DJ(MavenPublication) {
-            from components.java
-        }
-    }
-
-    repositories {
-        maven {
-            name = "io.github.creedvi"
-            url = layout.buildDirectory.dir("repo")
-        }
     }
 }
