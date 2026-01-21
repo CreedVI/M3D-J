@@ -418,15 +418,15 @@ public class M3DJ {
                     logger.Out(Tracelog.LogType.LOG_DEBUG, "Expected End Position: " + chunkEnd);
 
                     for(i = 0; i < numTexCoords; i++) {
-                        switch(model.header.VC_T) {
+                        switch (model.header.VC_T) {
                             case INT8 -> {
-                                float u = Byte.toUnsignedInt(fileData.get());
-                                float v = Byte.toUnsignedInt(fileData.get());
+                                int u = Byte.toUnsignedInt(fileData.get());
+                                int v = Byte.toUnsignedInt(fileData.get());
                                 model.textureMap.add(new M3DJ_TextureCoordinate(u / 255.0f, v / 255.0f));
                             }
                             case INT16 -> {
-                                float u = fileData.getShort();
-                                float v = fileData.getShort();
+                                int u = fileData.getShort();
+                                int v = fileData.getShort();
                                 model.textureMap.add(new M3DJ_TextureCoordinate(u / 35535.0f, v / 35535.0f));
                             }
                             case FLOAT -> {
@@ -469,56 +469,57 @@ public class M3DJ {
 
                         // Load vector component
                         switch(model.header.VC_T) {
-                            case INT8 -> {
+                            case INT8:
                                 vertex.x = (fileData.get() / 127.0);
                                 vertex.y = (fileData.get() / 127.0);
                                 vertex.z = (fileData.get() / 127.0);
                                 vertex.w = (fileData.get() / 127.0);
-                            }
-                            case INT16 -> {
+                                break;
+
+                            case INT16:
                                 vertex.x = (fileData.getShort() / 32767.0);
                                 vertex.y = (fileData.getShort() / 32767.0);
                                 vertex.z = (fileData.getShort() / 32767.0);
                                 vertex.w = (fileData.getShort() / 32767.0);
-                            }
-                            case FLOAT -> {
+                                break;
+                            case FLOAT:
                                 vertex.x = fileData.getFloat();
                                 vertex.y = fileData.getFloat();
                                 vertex.z = fileData.getFloat();
                                 vertex.w = fileData.getFloat();
-                            }
-                            case DOUBLE -> {
+                                break;
+                            case DOUBLE:
                                 vertex.x = fileData.getDouble();
                                 vertex.y = fileData.getDouble();
                                 vertex.z = fileData.getDouble();
                                 vertex.w = fileData.getDouble();
-                            }
+                                break;
                         }
 
                         // Load colour index component
                         switch(model.header.CI_T) {
-                            case UINT8 -> {
+                            case UINT8:
                                 if(!model.colors.isEmpty()) {
                                     vertex.colorIndex = fileData.get();
                                 }
                                 else {
                                     vertex.colorIndex = 0;
                                 }
-                            }
-                            case UINT16 -> {
+                            break;
+                            case UINT16:
                                 if(!model.colors.isEmpty()) {
                                     vertex.colorIndex = fileData.getShort();
                                 }
                                 else {
                                     vertex.colorIndex = 0;
                                 }
-                            }
-                            case UINT32 -> {
+                            break;
+                            case UINT32:
                                 vertex.colorIndex = fileData.getInt();
-                            }
-                            case UNDEFINED -> {
+                                break;
+                            case UNDEFINED:
                                 vertex.colorIndex = 0;
-                            }
+                                break;
                         }
 
                         vertex.skinIndex = GetIndex(fileData, model.header.SK_T.size);
@@ -570,7 +571,7 @@ public class M3DJ {
                     if(skinCount > 0) {
                         for(i = 0; fileData.position() < chunkEnd && i < skinCount; i++) {
                             M3DJ_Skin skin = new M3DJ_Skin();
-                            float[] weights = new float[M3D_NUMBONE];
+                            byte[] weights = new byte[M3D_NUMBONE];
 
                             for(int j = 0; j < M3D_NUMBONE; j++) {
                                 skin.boneIds[j] = M3D_UNDEF;
@@ -578,23 +579,22 @@ public class M3DJ {
                             }
 
                             if(model.header.NB_T.value == 1) {
-                                weights[0] = 255.0f;
+                                weights[0] = (byte) 255;
                             }
                             else {
-                                weights[0] = fileData.get();
-                                weights[1] = fileData.get();
-                                weights[2] = fileData.get();
-                                weights[3] = fileData.get();
+                                for (int j = 0; j < model.header.NB_T.value; j++) {
+                                    weights[j] = fileData.get();
+                                }
                             }
 
                             float w = 0.0f;
                             for(int j = 0; j < model.header.NB_T.value; j++) {
                                 if(weights[j] != 0.0f) {
                                     if(j >= M3D_NUMBONE) {
-                                        GetIndex(fileData, model.header.NB_T.value);
+                                        GetIndex(fileData, model.header.BI_T.size);
                                     }
                                     else {
-                                        skin.weights[j] = weights[j] / 255.0f;
+                                        skin.weights[j] = Byte.toUnsignedInt(weights[j]) / 255.0f;
                                         w += skin.weights[j];
                                         skin.boneIds[j] = GetIndex(fileData, model.header.BI_T.size);
                                     }
@@ -978,6 +978,238 @@ public class M3DJ {
         return null;
     }
 
+    /** TODO
+     * Return the interpolated animation pose.
+     *
+     * @param model Model to be evaluated
+     * @param actionId Action ID for evaluation
+     * @param mSec Time (in milliseconds) into the animation
+     * @return Array of transforms for the bones at the time during the specified animation.
+     */
+    public M3DJ_Bone[] Pose(M3DJ_Model model, int actionId, int mSec) {
+        M3DJ_Bone[] result = new M3DJ_Bone[model.bones.size()];
+        M3DJ_Vertex v, p ,f;
+        int i, j, l;
+        int vertexCount = model.vertices.size();
+        float t, c, d, s;
+        float[] r;
+
+        if (model == null || model.bones.isEmpty()) {
+            logger.Out(Tracelog.LogType.LOG_ERROR, "Failed to pose model. Model is null or does not have bones.");
+            return null;
+        }
+
+        for (i = 0; i < result.length; i++) {
+            result[i] = new M3DJ_Bone();
+            result[i].parentIndex = model.bones.get(i).parentIndex;
+            result[i].orientation = model.bones.get(i).orientation;
+            result[i].position = model.bones.get(i).position;
+            result[i].matrix4 = model.bones.get(i).matrix4;
+            result[i].matrix4 = _m3d_inv(result[i].matrix4);
+        }
+        
+        if(model.actions.isEmpty() || actionId >= model.actions.size()) {
+            return result;
+        }
+        
+        mSec %= model.actions.get(actionId).animationLength;
+
+        M3DJ_Frame frame;
+        for(j = 0, l = 0; j < model.actions.get(actionId).frameCount && model.actions.get(actionId).frames.get(j).timestamp <= mSec; j++) {
+            frame = model.actions.get(actionId).frames.get(j);
+            l = frame.timestamp;
+            for(i = 0; i < frame.transforms.length; i++) {
+                result[frame.transforms[i].boneId].position = frame.transforms[i].position;
+                result[frame.transforms[i].boneId].orientation = frame.transforms[i].orientation;
+            }
+        }
+
+        if(l != mSec) {
+            for (int k = vertexCount; k < vertexCount + 2 * model.bones.size(); k++) {
+                model.vertices.add(new M3DJ_Vertex());
+            }
+
+            M3DJ_Transform[] tmp = new M3DJ_Transform[model.bones.size()];
+            for(i = 0; i < model.bones.size(); i++) {
+                tmp[i] = new M3DJ_Transform();
+                tmp[i].position = result[i].position;
+                tmp[i].orientation = result[i].orientation;
+            }
+
+            frame = model.actions.get(actionId).frames.get(j % model.actions.get(actionId).frameCount);
+            t = l >= frame.timestamp ? 1.0f : (float) (mSec - l) / (frame.timestamp - l);
+
+            for(i = 0; i < frame.transforms.length; i++) {
+                tmp[frame.transforms[i].boneId].position = frame.transforms[i].position;
+                tmp[frame.transforms[i].boneId].orientation = frame.transforms[i].orientation;
+            }
+
+            for(i = 0, j = vertexCount; i < model.bones.size(); i++) {
+                /* interpolation of position */
+                if(result[i].position != tmp[i].position) {
+                    p = model.vertices.get(result[i].position);
+                    f = model.vertices.get(tmp[i].position);
+                    v = model.vertices.get(j);
+                    v.x = p.x + t * (f.x - p.x);
+                    v.y = p.y + t * (f.y - p.y);
+                    v.z = p.z + t * (f.z - p.z);
+                    result[i].position = j++;
+                }
+
+                /* interpolation of orientation */
+                if(result[i].orientation != tmp[i].orientation) {
+                    p = model.vertices.get(result[i].orientation);
+                    f = model.vertices.get(tmp[i].orientation);
+                    v = model.vertices.get(j);
+                    d = (float) (p.w * f.w + p.x * f.x + p.y * f.y + p.z * f.z);
+
+                    if(d < 0) {
+                        d = -d;
+                        s = -1.0f;
+                    }
+                    else {
+                        s = 1.0f;
+                    }
+
+                    /* approximated NLERP, original approximation by Arseny Kapoulkine, heavily optimized by bzt */
+                    c = t - 0.5f;
+                    t += (float) (t * c * (t - 1.0) * ((1.0904 + d * (-3.2452 + d * (3.55645 - d * 1.43519))) * c * c + (0.848013 + d * (-1.06021 + d * 0.215638))));
+                    v.x = p.x + t * (s * f.x - p.x);
+                    v.y = p.y + t * (s * f.y - p.y);
+                    v.z = p.z + t * (s * f.z - p.z);
+                    v.w = p.w + t * (s * f.w - p.w);
+                    d = _m3d_rsq((float) (v.w * v.w + v.x * v.x + v.y * v.y + v.z * v.z));
+                    v.x *= d; v.y *= d; v.z *= d; v.w *= d;
+
+                    result[i].orientation = j++;
+                }
+                
+            }
+        }
+
+        for(i = 0; i < model.bones.size(); i++) {
+            if(result[i].parentIndex == M3D_UNDEF) {
+                result[i].matrix4 = _m3d_mat(model.vertices.get(result[i].position), model.vertices.get(result[i].orientation));
+            }
+            else {
+                r = _m3d_mat(model.vertices.get(result[i].position), model.vertices.get(result[i].orientation));
+                result[i].matrix4 = _m3d_mul(result[result[i].parentIndex].matrix4, r);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Multiply two 4 x 4 matrices.
+     * @param a 4x4 Matrix (float [16] representation)
+     * @param b 4x4 Matrix (float [16] representation)
+     * @return Product of the two matrices (float [16] representation)
+     */
+    private float[] _m3d_mul(float[] a, float[] b) {
+        float[] result = new float[16];
+
+        result[ 0] = b[ 0] * a[ 0] + b[ 4] * a[ 1] + b[ 8] * a[ 2] + b[12] * a[ 3];
+        result[ 1] = b[ 1] * a[ 0] + b[ 5] * a[ 1] + b[ 9] * a[ 2] + b[13] * a[ 3];
+        result[ 2] = b[ 2] * a[ 0] + b[ 6] * a[ 1] + b[10] * a[ 2] + b[14] * a[ 3];
+        result[ 3] = b[ 3] * a[ 0] + b[ 7] * a[ 1] + b[11] * a[ 2] + b[15] * a[ 3];
+        result[ 4] = b[ 0] * a[ 4] + b[ 4] * a[ 5] + b[ 8] * a[ 6] + b[12] * a[ 7];
+        result[ 5] = b[ 1] * a[ 4] + b[ 5] * a[ 5] + b[ 9] * a[ 6] + b[13] * a[ 7];
+        result[ 6] = b[ 2] * a[ 4] + b[ 6] * a[ 5] + b[10] * a[ 6] + b[14] * a[ 7];
+        result[ 7] = b[ 3] * a[ 4] + b[ 7] * a[ 5] + b[11] * a[ 6] + b[15] * a[ 7];
+        result[ 8] = b[ 0] * a[ 8] + b[ 4] * a[ 9] + b[ 8] * a[10] + b[12] * a[11];
+        result[ 9] = b[ 1] * a[ 8] + b[ 5] * a[ 9] + b[ 9] * a[10] + b[13] * a[11];
+        result[10] = b[ 2] * a[ 8] + b[ 6] * a[ 9] + b[10] * a[10] + b[14] * a[11];
+        result[11] = b[ 3] * a[ 8] + b[ 7] * a[ 9] + b[11] * a[10] + b[15] * a[11];
+        result[12] = b[ 0] * a[12] + b[ 4] * a[13] + b[ 8] * a[14] + b[12] * a[15];
+        result[13] = b[ 1] * a[12] + b[ 5] * a[13] + b[ 9] * a[14] + b[13] * a[15];
+        result[14] = b[ 2] * a[12] + b[ 6] * a[13] + b[10] * a[14] + b[14] * a[15];
+        result[15] = b[ 3] * a[12] + b[ 7] * a[13] + b[11] * a[14] + b[15] * a[15];
+
+        return result;
+    }
+
+    /**
+     * Calculates the inverse of a 4 x 4 matrix.
+     * @param m Matrix (float [16] representation) to invert.
+     * @return inversion of given matrix.
+     */
+    private float[] _m3d_inv(float[] m) {
+        float[] result = new float[16];
+        float det =
+                  m[ 0]*m[ 5]*m[10]*m[15] - m[ 0]*m[ 5]*m[11]*m[14] + m[ 0]*m[ 6]*m[11]*m[13] - m[ 0]*m[ 6]*m[ 9]*m[15]
+                + m[ 0]*m[ 7]*m[ 9]*m[14] - m[ 0]*m[ 7]*m[10]*m[13] - m[ 1]*m[ 6]*m[11]*m[12] + m[ 1]*m[ 6]*m[ 8]*m[15]
+                - m[ 1]*m[ 7]*m[ 8]*m[14] + m[ 1]*m[ 7]*m[10]*m[12] - m[ 1]*m[ 4]*m[10]*m[15] + m[ 1]*m[ 4]*m[11]*m[14]
+                + m[ 2]*m[ 7]*m[ 8]*m[13] - m[ 2]*m[ 7]*m[ 9]*m[12] + m[ 2]*m[ 4]*m[ 9]*m[15] - m[ 2]*m[ 4]*m[11]*m[13]
+                + m[ 2]*m[ 5]*m[11]*m[12] - m[ 2]*m[ 5]*m[ 8]*m[15] - m[ 3]*m[ 4]*m[ 9]*m[14] + m[ 3]*m[ 4]*m[10]*m[13]
+                - m[ 3]*m[ 5]*m[10]*m[12] + m[ 3]*m[ 5]*m[ 8]*m[14] - m[ 3]*m[ 6]*m[ 8]*m[13] + m[ 3]*m[ 6]*m[ 9]*m[12];
+
+        if(det == 0.0f || det == -0.0f) {
+            det = 1.0f;
+        }
+        else {
+            det = 1.0f / det;
+        }
+
+        result[ 0] = det *(m[ 5]*(m[10]*m[15] - m[11]*m[14]) + m[ 6]*(m[11]*m[13] - m[ 9]*m[15]) + m[ 7]*(m[ 9]*m[14] - m[10]*m[13]));
+        result[ 1] = -det*(m[ 1]*(m[10]*m[15] - m[11]*m[14]) + m[ 2]*(m[11]*m[13] - m[ 9]*m[15]) + m[ 3]*(m[ 9]*m[14] - m[10]*m[13]));
+        result[ 2] = det *(m[ 1]*(m[ 6]*m[15] - m[ 7]*m[14]) + m[ 2]*(m[ 7]*m[13] - m[ 5]*m[15]) + m[ 3]*(m[ 5]*m[14] - m[ 6]*m[13]));
+        result[ 3] = -det*(m[ 1]*(m[ 6]*m[11] - m[ 7]*m[10]) + m[ 2]*(m[ 7]*m[ 9] - m[ 5]*m[11]) + m[ 3]*(m[ 5]*m[10] - m[ 6]*m[ 9]));
+        result[ 4] = -det*(m[ 4]*(m[10]*m[15] - m[11]*m[14]) + m[ 6]*(m[11]*m[12] - m[ 8]*m[15]) + m[ 7]*(m[ 8]*m[14] - m[10]*m[12]));
+        result[ 5] = det *(m[ 0]*(m[10]*m[15] - m[11]*m[14]) + m[ 2]*(m[11]*m[12] - m[ 8]*m[15]) + m[ 3]*(m[ 8]*m[14] - m[10]*m[12]));
+        result[ 6] = -det*(m[ 0]*(m[ 6]*m[15] - m[ 7]*m[14]) + m[ 2]*(m[ 7]*m[12] - m[ 4]*m[15]) + m[ 3]*(m[ 4]*m[14] - m[ 6]*m[12]));
+        result[ 7] = det *(m[ 0]*(m[ 6]*m[11] - m[ 7]*m[10]) + m[ 2]*(m[ 7]*m[ 8] - m[ 4]*m[11]) + m[ 3]*(m[ 4]*m[10] - m[ 6]*m[ 8]));
+        result[ 8] = det *(m[ 4]*(m[ 9]*m[15] - m[11]*m[13]) + m[ 5]*(m[11]*m[12] - m[ 8]*m[15]) + m[ 7]*(m[ 8]*m[13] - m[ 9]*m[12]));
+        result[ 9] = -det*(m[ 0]*(m[ 9]*m[15] - m[11]*m[13]) + m[ 1]*(m[11]*m[12] - m[ 8]*m[15]) + m[ 3]*(m[ 8]*m[13] - m[ 9]*m[12]));
+        result[10] = det *(m[ 0]*(m[ 5]*m[15] - m[ 7]*m[13]) + m[ 1]*(m[ 7]*m[12] - m[ 4]*m[15]) + m[ 3]*(m[ 4]*m[13] - m[ 5]*m[12]));
+        result[11] = -det*(m[ 0]*(m[ 5]*m[11] - m[ 7]*m[ 9]) + m[ 1]*(m[ 7]*m[ 8] - m[ 4]*m[11]) + m[ 3]*(m[ 4]*m[ 9] - m[ 5]*m[ 8]));
+        result[12] = -det*(m[ 4]*(m[ 9]*m[14] - m[10]*m[13]) + m[ 5]*(m[10]*m[12] - m[ 8]*m[14]) + m[ 6]*(m[ 8]*m[13] - m[ 9]*m[12]));
+        result[13] = det *(m[ 0]*(m[ 9]*m[14] - m[10]*m[13]) + m[ 1]*(m[10]*m[12] - m[ 8]*m[14]) + m[ 2]*(m[ 8]*m[13] - m[ 9]*m[12]));
+        result[14] = -det*(m[ 0]*(m[ 5]*m[14] - m[ 6]*m[13]) + m[ 1]*(m[ 6]*m[12] - m[ 4]*m[14]) + m[ 2]*(m[ 4]*m[13] - m[ 5]*m[12]));
+        result[15] = det *(m[ 0]*(m[ 5]*m[10] - m[ 6]*m[ 9]) + m[ 1]*(m[ 6]*m[ 8] - m[ 4]*m[10]) + m[ 2]*(m[ 4]*m[ 9] - m[ 5]*m[ 8]));
+
+        return result;
+    }
+
+    /**
+     * Compose a column major 4 x 4 matrix from vec3 position and vec4 orientation/rotation quaternion
+     * @param p Vector 3 point
+     * @param q Vector 4 orientation/rotation quaternion
+     * @return float[16] representation of a 4x4 matrix
+     */
+    private float[] _m3d_mat(M3DJ_Vertex p, M3DJ_Vertex q) {
+        float[] result = new float[16];
+
+        if(q.x == 0.0 && q.y == 0.0 && q.z >= 0.7071065 && q.z <= 0.7071075 && q.w == 0.0) {
+            result[ 1] = result[ 2] = result[ 4] = result[ 6] = result[ 8] = result[ 9] = 0.0f;
+            result[ 0] = result[ 5] = result[10] = -1.0f;
+        }
+        else {
+            result[ 0] = (float) (1 - 2 * (q.y * q.y + q.z * q.z)); if(result[ 0]>-Float.MIN_VALUE && result[ 0]<Float.MIN_VALUE) result[ 0]=0.0f;
+            result[ 1] = (float) (2 * (q.x * q.y - q.z * q.w));     if(result[ 1]>-Float.MIN_VALUE && result[ 1]<Float.MIN_VALUE) result[ 1]=0.0f;
+            result[ 2] = (float) (2 * (q.x * q.z + q.y * q.w));     if(result[ 2]>-Float.MIN_VALUE && result[ 2]<Float.MIN_VALUE) result[ 2]=0.0f;
+            result[ 4] = (float) (2 * (q.x * q.y + q.z * q.w));     if(result[ 4]>-Float.MIN_VALUE && result[ 4]<Float.MIN_VALUE) result[ 4]=0.0f;
+            result[ 5] = (float) (1 - 2 * (q.x * q.x + q.z * q.z)); if(result[ 5]>-Float.MIN_VALUE && result[ 5]<Float.MIN_VALUE) result[ 5]=0.0f;
+            result[ 6] = (float) (2 * (q.y * q.z - q.x * q.w));     if(result[ 6]>-Float.MIN_VALUE && result[ 6]<Float.MIN_VALUE) result[ 6]=0.0f;
+            result[ 8] = (float) (2 * (q.x * q.z - q.y * q.w));     if(result[ 8]>-Float.MIN_VALUE && result[ 8]<Float.MIN_VALUE) result[ 8]=0.0f;
+            result[ 9] = (float) (2 * (q.y * q.z + q.x * q.w));     if(result[ 9]>-Float.MIN_VALUE && result[ 9]<Float.MIN_VALUE) result[ 9]=0.0f;
+            result[10] = (float) (1 - 2 * (q.x * q.x + q.y * q.y)); if(result[10]>-Float.MIN_VALUE && result[10]<Float.MIN_VALUE) result[10]=0.0f;
+        }
+        result[ 3] = (float) p.x; result[ 7] = (float) p.y; result[11] = (float) p.z;
+        result[12] = 0; result[13] = 0; result[14] = 0; result[15] = 1;
+
+        return result;
+    }
+
+    /**
+     * Portable fast inverse square root calculation
+     * @param x Value to get inverse square root of.
+     * @return 1/sqrt(x)
+     */
+    private float _m3d_rsq(float x) {
+        return (float) ((15.0/8.0) + (-5.0/4.0)*x + (3.0/8.0)*x*x);
+    }
+    
     /**
      * Returns value from data buffer based on index size.
      *
@@ -1259,7 +1491,8 @@ public class M3DJ {
                 output.append("parent: " + bone.parentIndex + ", ");
                 output.append("name: " + bone.name + ", ");
                 output.append("position: " + bone.position + ", ");
-                output.append("orientation: " + bone.orientation + "},");
+                output.append("orientation: " + bone.orientation);
+                output.append(" },\n");
             }
             output.append("}\n");
         }
@@ -1267,11 +1500,13 @@ public class M3DJ {
         // Skins
         if(!model.skins.isEmpty()) {
             output.append("model.skins = {\n");
+            int i = 0;
             for(M3DJ_Skin skin : model.skins) {
-                output.append("\t{ ");
+                output.append("/* " + i + " */ { ");
                 output.append("Bone IDs = { " + skin.boneIds[0] + ", " + skin.boneIds[1] + ", " + skin.boneIds[2] + ", " + skin.boneIds[3] + " }, ");
                 output.append("Weights = { " + skin.weights[0] + ", " + skin.weights[1] + ", " + skin.weights[2] + ", " + skin.weights[3] + " }, ");
                 output.append("}\n");
+                i++;
             }
             output.append("}\n");
         }

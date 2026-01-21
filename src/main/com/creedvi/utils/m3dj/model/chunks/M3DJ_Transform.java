@@ -6,6 +6,7 @@ public class M3DJ_Transform {
     public int position;
     public int orientation;
 
-    public M3DJ_Transform() {}
+    public M3DJ_Transform() {
+    }
 
 }

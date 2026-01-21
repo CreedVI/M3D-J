@@ -6,6 +6,9 @@ public class M3DJ_Texture {
 
     public String name;
     public ByteBuffer textureData;
+    public int width;
+    public int height;
+    public int format;
 
     public M3DJ_Texture() {
 

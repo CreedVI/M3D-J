@@ -23,21 +23,21 @@ public class BinaryFileParsing {
         }
 
         String[] filePath = new String[]{
-                "aliveai_character.m3d",
-                "bezier.m3d",
+                // "aliveai_character.m3d",
+                // "bezier.m3d",
                 "CesiumMan.m3d",
-                "cube.m3d",
-                "cube_normals.m3d",
-                "cube_usemtl.m3d",
-                "cube_with_vertexcolors.m3d",
-                "lantea.m3d",
-                "mobs_dwarves_character.m3d",
-                "nurbs.m3d",
-                "suzanne.m3d",
-                "voxel.m3d",
-                "WusonBlitz0.m3d",
-                "WusonBlitz1.m3d",
-                "WusonBlitz2.m3d",
+                // "cube.m3d",
+                // "cube_normals.m3d",
+                // "cube_usemtl.m3d",
+                // "cube_with_vertexcolors.m3d",
+                // "lantea.m3d",
+                // "mobs_dwarves_character.m3d",
+                // "nurbs.m3d",
+                // "suzanne.m3d",
+                // "voxel.m3d",
+                // "WusonBlitz0.m3d",
+                // "WusonBlitz1.m3d",
+                // "WusonBlitz2.m3d",
         };
 
         for(String s : filePath) {
@@ -68,7 +68,7 @@ public class BinaryFileParsing {
                     String input = in.next();
 
                     if(input.equalsIgnoreCase("y") | input.equalsIgnoreCase("yes")) {
-                        parser.DumpModel(model, s + ".dump");
+                        parser.DumpModel(model, s);
                     }
 
                 } catch(IOException e) {
