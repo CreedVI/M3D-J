@@ -1,9 +1,10 @@
 plugins {
     id 'java-library'
+    id 'com.vanniktech.maven.publish' version "0.36.0"
 }
 
 group = 'com.creedvi'
-version = '0.1.0'
+version = '0.1.0a'
 
 repositories {
     mavenCentral()
@@ -31,5 +32,37 @@ sourceSets {
     test {
         java.srcDir('src/tests')
         resources.srcDir('assets')
+    }
+}
+
+mavenPublishing {
+    publishToMavenCentral()
+    signAllPublications()
+    coordinates(group.toString(), "M3D-J", version.toString())
+
+    pom {
+        name = "M3D-J"
+        description = "M3D model parser for Java."
+        inceptionYear = "2025"
+        url = "https://github.com/CreedVI/M3D-J"
+        licenses {
+            license {
+                name = "The Apache License, Version 2.0"
+                url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                distribution = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+            }
+        }
+        developers {
+            developer {
+                id = "CreedVI"
+                name = "Calvin Day"
+                url = "https://github.com/CreedVI"
+            }
+        }
+        scm {
+            url = "https://github.com/CreedVI/M3D-J/"
+            connection = "scm:git:git://github.com/CreedVI/M3D-J.git"
+            developerConnection = "scm:git:ssh://git@github.com/CreedVI/M3D-J.git"
+        }
     }
 }
