@@ -3,7 +3,7 @@ plugins {
     id 'com.vanniktech.maven.publish' version "0.36.0"
 }
 
-group = 'com.creedvi'
+group = 'io.github.creedvi'
 version = '0.1.0a'
 
 repositories {
